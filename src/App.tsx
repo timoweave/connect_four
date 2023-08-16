@@ -143,6 +143,7 @@ const GameButtonStyle = (
   player: GamePlayer
 ): React.CSSProperties => ({
   gridArea: gamebuttonGridArea({ col }),
+  color: "white",
   backgroundColor: gameGetCellColor(player),
   width: "100%",
 });

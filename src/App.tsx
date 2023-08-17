@@ -40,6 +40,7 @@ export const useGame = (props: {
   const pieceLocation = useRef<Map<string, GamePlayer>>(
     new Map<string, GamePlayer>()
   );
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   const hasWinner = useMemo<boolean>(() => winner != null, [winner]);
 
@@ -49,12 +50,12 @@ export const useGame = (props: {
   );
 
   const columns = useMemo<number[]>(
-    () => Array.from({ length: props.column }, (_, i) => i),
-    [props.column]
+    () => Array.from({ length: column }, (_, i) => i),
+    [column]
   );
   const rows = useMemo<number[]>(
-    () => Array.from({ length: props.row }, (_, i) => i),
-    [props.row]
+    () => Array.from({ length: row }, (_, i) => i),
+    [row]
   );
 
   return {
@@ -79,6 +80,7 @@ export const useGame = (props: {
     pieces,
     setPieces,
     pieceLocation,
+    dialogRef,
   };
 };
 
@@ -108,6 +110,7 @@ const USE_GAME_DEFAULT: UseGameType = {
   pieces: [],
   setPieces: emptyFunction,
   pieceLocation: { current: new Map<string, GamePlayer>() },
+  dialogRef: { current: null },
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -243,31 +246,31 @@ const gamebuttonGridArea = (props: { col: number }): string => {
 
 const GameButtonStyle = (
   col: number,
-  player: GamePlayer,
   isDisabled: boolean
 ): React.CSSProperties => ({
   gridArea: gamebuttonGridArea({ col }),
   color: "white",
-  backgroundColor: isDisabled ? "grey" : gameGetCellColor(player),
+  backgroundColor: isDisabled ? "grey" : "#1976d2",
   width: "100%",
+  height: "2.5rem",
 });
 
 const GameButtons = () => {
   const game = useGameFromContext();
-  const { hasWinner, columns, player } = game;
+  const { hasWinner, columns } = game;
 
   return (
     <>
       {columns.map((col) => (
         <button
-          style={GameButtonStyle(col, player, hasWinner)}
+          style={GameButtonStyle(col, hasWinner)}
           disabled={gameIsFullColumn(game, col) || hasWinner}
           key={col}
           onClick={() => {
             addPiece(game, col);
           }}
         >
-          {col}
+          (x, {col})
         </button>
       ))}
     </>
@@ -288,13 +291,15 @@ const GameCellStyle = (props: {
     borderRadius: "50%",
     width: `${size}rem`,
     height: `${size}rem`,
-    border: outlined === true ? "1px solid lightgrey" : undefined,
+    outline: outlined === true ? "1px solid lightgrey" : undefined,
   };
 };
 
 const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
   const { columns, rows, size } = game;
+  console.log({ columns, rows, size });
   const gridTemplateAreas = [
+    `"${columns.map(() => "game_header").join(" ")}"`,
     `"${columns.map((col) => gamebuttonGridArea({ col })).join(" ")}"`,
     rows
       .map(
@@ -308,8 +313,7 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
     display: "grid",
     borderRadius: "50%",
     gap: "1rem",
-    width: `${size}rem`,
-    height: `${size}rem`,
+    placeItems: "center",
     gridTemplateAreas,
   };
 };
@@ -357,18 +361,134 @@ const GameBoard = (props: { children: React.ReactNode }) => {
   return <div style={GameBoardStyle(game)}>{children}</div>;
 };
 
+const GameHeaderStyle: React.CSSProperties = {
+  gridArea: "game_header",
+  display: "grid",
+  gridTemplateColumns: "repeat(3, 1fr)",
+  gap: "1rem",
+  width: "100%",
+  margin: "2rem 0rem",
+};
+
+const GameConfigDialogStyle: React.CSSProperties = {
+  border: "none",
+  borderRadius: "0.5rem",
+};
+
+const GameConfigStyle: React.CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+  gridTemplateAreas: `
+  "config_header config_header"
+  "config_column config_column_input"
+  "config_row config_row_input"
+  "config_count config_count_input"
+  "_ config_close"
+  `,
+  margin: "1rem 5rem",
+};
+
+const GameConfig = () => {
+  const game = useGameFromContext();
+  const { dialogRef, column, setColumn, row, setRow, count, setCount } = game;
+
+  return (
+    <dialog ref={dialogRef} style={GameConfigDialogStyle}>
+      <div style={GameConfigStyle}>
+        <h3 style={{ gridArea: "config_header" }}>Game Configuration</h3>
+        <label style={{ gridArea: "config_column" }}>Column</label>
+        <input
+          style={{ gridArea: "config_column_input" }}
+          type="number"
+          value={column}
+          onChange={(e) => {
+            setColumn(parseInt(e.target.value, 10));
+          }}
+        />
+        <label style={{ gridArea: "config_row" }}>Row</label>
+        <input
+          style={{ gridArea: "config_row_input" }}
+          type="number"
+          value={row}
+          onChange={(e) => {
+            setRow(parseInt(e.target.value, 10));
+          }}
+        />
+        <label style={{ gridArea: "config_count" }}>Count</label>
+        <input
+          style={{ gridArea: "config_count_input" }}
+          type="number"
+          value={count}
+          onChange={(e) => {
+            setCount(parseInt(e.target.value, 10));
+          }}
+        />
+        <button
+          style={{ gridArea: "config_close" }}
+          onClick={() => {
+            dialogRef.current?.open;
+            dialogRef.current?.close();
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </dialog>
+  );
+};
+
+const GameHeader = () => {
+  const game = useGameFromContext();
+  const { dialogRef, setPieces, setPlayer, player } = game;
+
+  return (
+    <div style={GameHeaderStyle}>
+      <button
+        style={{
+          width: "100%",
+          backgroundColor: player === GamePlayer.green ? "green" : "red",
+        }}
+        onClick={() => {
+          setPlayer(gameTogglePlayer);
+        }}
+      >
+        {player === GamePlayer.green ? "Green" : "Red"} Turn
+      </button>
+      <button
+        style={{ width: "100%" }}
+        onClick={() => {
+          dialogRef.current?.showModal();
+        }}
+      >
+        Config
+      </button>
+      <button
+        style={{ width: "100%" }}
+        onClick={() => {
+          setPieces([]);
+          setPlayer(GamePlayer.green);
+        }}
+      >
+        Clear
+      </button>
+    </div>
+  );
+};
+
 const Game = () => {
   return (
     <GameBoard>
+      <GameHeader />
       <GameButtons />
       <GameCells />
       <GamePieces />
+      <GameConfig />
     </GameBoard>
   );
 };
 
 const App = () => {
-  const value = useGame({ column: 5, row: 5, size: 5, count: 4 });
+  const value = useGame({ column: 18, row: 10, size: 5, count: 4 });
 
   return (
     <GameContext.Provider value={value}>

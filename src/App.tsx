@@ -170,36 +170,44 @@ export interface GamePlayerPieceCount {
   done: boolean;
 }
 
-export const gameHasWiningPiecesInThisDirection = (
-  game: UseGameType,
-  forwardDirection: (i: number) => GameCellCoord,
-  backwardDirection: (i: number) => GameCellCoord
-): boolean => {
+export const gameHasWiningPiecesInThisDirection = (props: {
+  game: UseGameType;
+  forward: (i: number) => GameCellCoord;
+  backward: (i: number) => GameCellCoord;
+  direction?: string;
+}): boolean => {
+  const { game, forward, backward } = props;
   const { pieceLocation, player, count, counts, column, row } = game;
   const init: GamePlayerPieceCount = { player, sum: 0, done: false };
 
   const forwardCoords = counts
-    .map(forwardDirection)
+    .map(forward)
     .filter((a) => a.col >= 0 && a.row >= 0 && a.col < column && a.row < row);
   const backwardCoords = counts
-    .map(backwardDirection)
+    .map(backward)
     .filter((a) => a.col >= 0 && a.row >= 0 && a.col < column && a.row < row);
 
-  const [forward, backward] = [forwardCoords, backwardCoords].map((direction) =>
-    direction.reduce((ans: GamePlayerPieceCount, coord: GameCellCoord) => {
-      if (ans.done) {
-        return ans;
-      }
+  const [forwardPieceCount, backwardPieceCount] = [
+    forwardCoords,
+    backwardCoords,
+  ].map((directionCoords) =>
+    directionCoords.reduce(
+      (ans: GamePlayerPieceCount, coord: GameCellCoord) => {
+        if (ans.done) {
+          return ans;
+        }
 
-      const locationKey = `${coord.row}_${coord.col}`;
-      if (pieceLocation.current.get(locationKey) !== player) {
-        return { ...ans, done: true };
-      }
-      return { ...ans, sum: ans.sum + 1 };
-    }, init)
+        const locationKey = `${coord.row}_${coord.col}`;
+        if (pieceLocation.current.get(locationKey) !== player) {
+          return { ...ans, done: true };
+        }
+        return { ...ans, sum: ans.sum + 1 };
+      },
+      init
+    )
   );
 
-  const total = forward.sum + backward.sum;
+  const total = forwardPieceCount.sum + backwardPieceCount.sum;
   return total >= count - 1;
 };
 
@@ -210,41 +218,46 @@ export const gameHasWinner = (game: UseGameType, piece: GamePiece): boolean => {
   pieceLocation.current.set(`${row}_${col}`, player);
 
   return (
-    gameHasWiningPiecesInThisDirection(
+    gameHasWiningPiecesInThisDirection({
       game,
-      (i) => ({ col: col, row: row - i - 1 }), // up
-      (i) => ({ col: col, row: row + i + 1 }) // down
-    ) ||
-    gameHasWiningPiecesInThisDirection(
+      forward: (i) => ({ col: col, row: row - i - 1 }), // up
+      backward: (i) => ({ col: col, row: row + i + 1 }), // down
+      direction: "vertical",
+    }) ||
+    gameHasWiningPiecesInThisDirection({
       game,
-      (i) => ({ col: col - i - 1, row }), // left
-      (i) => ({ col: col + i + 1, row: row }) // right
-    ) ||
-    gameHasWiningPiecesInThisDirection(
+      forward: (i) => ({ col: col - i - 1, row }), // left
+      backward: (i) => ({ col: col + i + 1, row: row }), // right
+      direction: "horizontal",
+    }) ||
+    gameHasWiningPiecesInThisDirection({
       game,
-      (i) => ({ col: col - i - 1, row: row + i + 1 }), // down-left
-      (i) => ({ col: col + i + 1, row: row - i - 1 }) // up-right
-    ) ||
-    gameHasWiningPiecesInThisDirection(
+      forward: (i) => ({ col: col - i - 1, row: row + i + 1 }), // down-left
+      backward: (i) => ({ col: col + i + 1, row: row - i - 1 }), // up-right
+      direction: "rise diagonal",
+    }) ||
+    gameHasWiningPiecesInThisDirection({
       game,
-      (i) => ({ col: col - i - 1, row: -i - 1 }), // up-left
-      (i) => ({ col: col + i + 1, row: row + i + 1 }) // down-right
-    )
+      forward: (i) => ({ col: col - i - 1, row: row - i - 1 }), // up-left
+      backward: (i) => ({ col: col + i + 1, row: row + i + 1 }), // down-right
+      direction: "fall diagonal",
+    })
   );
 };
 
-export const gameAddPiece = (
-  game: UseGameType,
-  col: number,
-  rowGiven: number | null = null
-): void => {
+export const gameAddPiece = (props: {
+  game: UseGameType;
+  col: number;
+  row?: number;
+}): void => {
+  const { game, col } = props;
   const { hasWinner, player, setPlayer, setPieces, winner, setWinner } = game;
   if (hasWinner || winner) {
     return;
   }
 
   const color = gameGetCellColor(player);
-  const row = rowGiven ?? gameFindNextRow(game, col);
+  const row = props.row ?? gameFindNextRow(game, col);
   if (row == null) {
     return;
   }
@@ -253,8 +266,7 @@ export const gameAddPiece = (
   const isWon = gameHasWinner(game, piece);
   const nextPlayer = isWon ? player : gameTogglePlayer(game);
 
-  setPlayer((prevPlayer) => (isWon === false ? nextPlayer : prevPlayer));
-  // setPlayer(nextPlayer);
+  setPlayer(nextPlayer);
   setPieces((p) => [...p, piece]);
   setWinner(() => (isWon === false ? null : player));
 };
@@ -303,8 +315,8 @@ const GameCellStyle = (props: {
 };
 
 const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
-  const { columns, rows, size } = game;
-  console.log({ columns, rows, size });
+  const { columns, rows } = game;
+
   const gridTemplateAreas = [
     `"${columns.map(() => "game_header").join(" ")}"`,
     rows
@@ -337,7 +349,7 @@ export const GameCells = () => {
           <div
             key={gameCellGridArea({ col, row })}
             style={GameCellStyle({ row, col, color, size, outlined })}
-            onClick={() => gameAddPiece(game, col)}
+            onClick={() => gameAddPiece({ game, col })}
           ></div>
         ))
       )}

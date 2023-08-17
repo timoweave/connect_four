@@ -36,6 +36,7 @@ export const useGame = (props: {
   const [row, setRow] = useState<number>(props.row);
   const [winner, setWinner] = useState<GamePlayer | null>(null);
   const [player, setPlayer] = useState<GamePlayer>(GamePlayer.green);
+  const [isPlayerToggleable, setIsPlayerToggleable] = useState<boolean>(true);
   const [pieces, setPieces] = useState<GamePiece[]>([]);
   const pieceLocation = useRef<Map<string, GamePlayer>>(
     new Map<string, GamePlayer>()
@@ -81,6 +82,8 @@ export const useGame = (props: {
     setPieces,
     pieceLocation,
     dialogRef,
+    isPlayerToggleable,
+    setIsPlayerToggleable,
   };
 };
 
@@ -111,6 +114,8 @@ const USE_GAME_DEFAULT: UseGameType = {
   setPieces: emptyFunction,
   pieceLocation: { current: new Map<string, GamePlayer>() },
   dialogRef: { current: null },
+  isPlayerToggleable: true,
+  setIsPlayerToggleable: emptyFunction,
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -122,8 +127,8 @@ export const gameGetCellColor = (player: GamePlayer): GameCellColor => {
 };
 
 export const gameTogglePlayer = (game: UseGameType): GamePlayer => {
-  const { setPlayer, player, hasWinner } = game;
-  if (hasWinner) {
+  const { setPlayer, player, hasWinner, isPlayerToggleable } = game;
+  if (hasWinner || !isPlayerToggleable) {
     return player;
   }
 
@@ -228,14 +233,18 @@ export const gameHasWinner = (game: UseGameType, piece: GamePiece): boolean => {
   );
 };
 
-export const gameAddPiece = (game: UseGameType, col: number): void => {
-  const { hasWinner, player, setPlayer, setPieces, setWinner } = game;
-  if (hasWinner) {
+export const gameAddPiece = (
+  game: UseGameType,
+  col: number,
+  rowGiven: number | null = null
+): void => {
+  const { hasWinner, player, setPlayer, setPieces, winner, setWinner } = game;
+  if (hasWinner || winner) {
     return;
   }
 
   const color = gameGetCellColor(player);
-  const row = gameFindNextRow(game, col);
+  const row = rowGiven ?? gameFindNextRow(game, col);
   if (row == null) {
     return;
   }
@@ -245,6 +254,7 @@ export const gameAddPiece = (game: UseGameType, col: number): void => {
   const nextPlayer = isWon ? player : gameTogglePlayer(game);
 
   setPlayer((prevPlayer) => (isWon === false ? nextPlayer : prevPlayer));
+  // setPlayer(nextPlayer);
   setPieces((p) => [...p, piece]);
   setWinner(() => (isWon === false ? null : player));
 };
@@ -267,7 +277,10 @@ export const gameReset = (game: UseGameType) => {
   pieceLocation.current.clear();
 };
 
-const gameCellGridArea = (props: { col: number; row: number }): string => {
+export const gameCellGridArea = (props: {
+  col: number;
+  row: number;
+}): string => {
   return `game_cell_${props.row}_${props.col}`;
 };
 
@@ -311,7 +324,7 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
   };
 };
 
-const GameCells = () => {
+export const GameCells = () => {
   const game = useGameFromContext();
   const { columns, rows, size } = game;
   const color = GameCellColor.white;
@@ -332,7 +345,7 @@ const GameCells = () => {
   );
 };
 
-const GamePieces = () => {
+export const GamePieces = () => {
   const game = useGameFromContext();
   const { pieces, size } = game;
 
@@ -348,7 +361,7 @@ const GamePieces = () => {
   );
 };
 
-const GameBoard = (props: { children: React.ReactNode }) => {
+export const GameBoard = (props: { children: React.ReactNode }) => {
   const game = useGameFromContext();
   const { children } = props;
 
@@ -382,7 +395,7 @@ const GameConfigStyle: React.CSSProperties = {
   margin: "1rem 5rem",
 };
 
-const GameConfig = () => {
+export const GameConfig = () => {
   const game = useGameFromContext();
   const { dialogRef, column, setColumn, row, setRow, count, setCount } = game;
 
@@ -422,14 +435,16 @@ const GameConfig = () => {
   );
 };
 
-const GameHeaderPlayerStyle = (player: GamePlayer): React.CSSProperties => {
+export const GameHeaderPlayerStyle = (
+  player: GamePlayer
+): React.CSSProperties => {
   return {
     width: "100%",
     backgroundColor: player === GamePlayer.green ? "green" : "red",
   };
 };
 
-const GameHeader = () => {
+export const GameHeader = () => {
   const game = useGameFromContext();
   const { pieces, hasWinner, player } = game;
 
@@ -460,7 +475,7 @@ const GameHeader = () => {
   );
 };
 
-const Game = () => {
+export const Game = () => {
   return (
     <GameBoard>
       <GameHeader />
@@ -471,14 +486,22 @@ const Game = () => {
   );
 };
 
-const App = () => {
+export const GameProvider = (props: { children: React.ReactNode }) => {
+  const { children } = props;
   const value = useGame({ column: 18, row: 10, size: 5, count: 4 });
 
   return (
     <GameContext.Provider value={value}>
-      <Game />
+      <>{children}</>
     </GameContext.Provider>
   );
 };
 
-export default App;
+export const App = () => {
+  return (
+    <GameProvider>
+      <Game />
+    </GameProvider>
+  );
+};
+

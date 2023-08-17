@@ -5,8 +5,9 @@
 
 # Component Layout
 
-1. use css `display: grid` for the game board,we then use `grid-area: f(x,y)` to layout cells and pieces, and finally use `grid-area: g(x,y)` to layout buttons. This approach makes all added component one-render only (no re-render needed for cells or pieces, avoiding `O(n x m)` rendering)
+1. use css `display: grid` for the game board,we then use `grid-area: f(x,y)` to layout cells and pieces, and finally use `grid-area: g(x,y)` to layout buttons. This approach makes all added component once-render only (no re-render needed for cells or pieces, avoiding `O(n x m)` rendering)
 ![plot](./doc/game-components.png)
+1. note: we could add player turn boxes about buttons, and make the buttons once-render to avoid `O(n)` rendering
 
 # State and Functions
 1. use context/hook to manage state between components

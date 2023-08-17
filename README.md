@@ -1,7 +1,9 @@
 # Connect Four
 
-1. board on size nxm
-1. win if user has continuous c in a row, col, or diagram
+1. a board game of matrix size `n` columns and `m` rows.
+1. each player takes turn to place its piece on the boad.
+1. player can click the cell to place a player's piece to the board.
+1. a player win the game if the player has placed continuous `c` number of the player's pieces in a vertical, horizontal, or diagonals.
 
 # Component Layout
 

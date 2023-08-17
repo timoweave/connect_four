@@ -121,8 +121,16 @@ export const gameGetCellColor = (player: GamePlayer): GameCellColor => {
   return player === GamePlayer.green ? GameCellColor.green : GameCellColor.red;
 };
 
-export const gameTogglePlayer = (player: GamePlayer): GamePlayer => {
-  return player === GamePlayer.green ? GamePlayer.red : GamePlayer.green;
+export const gameTogglePlayer = (game: UseGameType): GamePlayer => {
+  const { setPlayer, player, hasWinner } = game;
+  if (hasWinner) {
+    return player;
+  }
+
+  const nextPlayer =
+    player === GamePlayer.green ? GamePlayer.red : GamePlayer.green;
+  setPlayer(nextPlayer);
+  return nextPlayer;
 };
 
 export const gameIsFullColumn = (game: UseGameType, col: number): boolean => {
@@ -220,8 +228,12 @@ export const gameHasWinner = (game: UseGameType, piece: GamePiece): boolean => {
   );
 };
 
-export const addPiece = (game: UseGameType, col: number): void => {
-  const { player, setPlayer, setPieces, setWinner } = game;
+export const gameAddPiece = (game: UseGameType, col: number): void => {
+  const { hasWinner, player, setPlayer, setPieces, setWinner } = game;
+  if (hasWinner) {
+    return;
+  }
+
   const color = gameGetCellColor(player);
   const row = gameFindNextRow(game, col);
   if (row == null) {
@@ -230,51 +242,33 @@ export const addPiece = (game: UseGameType, col: number): void => {
 
   const piece: GamePiece = { color, row, col };
   const isWon = gameHasWinner(game, piece);
+  const nextPlayer = isWon ? player : gameTogglePlayer(game);
 
-  setPlayer(gameTogglePlayer);
+  setPlayer((prevPlayer) => (isWon === false ? nextPlayer : prevPlayer));
   setPieces((p) => [...p, piece]);
-  setWinner((prevWinner) => (isWon === false ? prevWinner : player));
+  setWinner(() => (isWon === false ? null : player));
+};
+
+export const gameOpenConfigDialog = (game: UseGameType) => {
+  const { dialogRef } = game;
+  dialogRef.current?.showModal();
+};
+
+export const gameCloseConfigDialog = (game: UseGameType) => {
+  const { dialogRef } = game;
+  dialogRef.current?.close();
+};
+
+export const gameReset = (game: UseGameType) => {
+  const { setPieces, setPlayer, setWinner, pieceLocation } = game;
+  setPieces([]);
+  setPlayer(GamePlayer.green);
+  setWinner(null);
+  pieceLocation.current.clear();
 };
 
 const gameCellGridArea = (props: { col: number; row: number }): string => {
   return `game_cell_${props.row}_${props.col}`;
-};
-
-const gamebuttonGridArea = (props: { col: number }): string => {
-  return `game_button_${props.col}`;
-};
-
-const GameButtonStyle = (
-  col: number,
-  isDisabled: boolean
-): React.CSSProperties => ({
-  gridArea: gamebuttonGridArea({ col }),
-  color: "white",
-  backgroundColor: isDisabled ? "grey" : "#1976d2",
-  width: "100%",
-  height: "2.5rem",
-});
-
-const GameButtons = () => {
-  const game = useGameFromContext();
-  const { hasWinner, columns } = game;
-
-  return (
-    <>
-      {columns.map((col) => (
-        <button
-          style={GameButtonStyle(col, hasWinner)}
-          disabled={gameIsFullColumn(game, col) || hasWinner}
-          key={col}
-          onClick={() => {
-            addPiece(game, col);
-          }}
-        >
-          (x, {col})
-        </button>
-      ))}
-    </>
-  );
 };
 
 const GameCellStyle = (props: {
@@ -300,7 +294,6 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
   console.log({ columns, rows, size });
   const gridTemplateAreas = [
     `"${columns.map(() => "game_header").join(" ")}"`,
-    `"${columns.map((col) => gamebuttonGridArea({ col })).join(" ")}"`,
     rows
       .map(
         (row) =>
@@ -331,6 +324,7 @@ const GameCells = () => {
           <div
             key={gameCellGridArea({ col, row })}
             style={GameCellStyle({ row, col, color, size, outlined })}
+            onClick={() => gameAddPiece(game, col)}
           ></div>
         ))
       )}
@@ -401,34 +395,25 @@ const GameConfig = () => {
           style={{ gridArea: "config_column_input" }}
           type="number"
           value={column}
-          onChange={(e) => {
-            setColumn(parseInt(e.target.value, 10));
-          }}
+          onChange={(e) => setColumn(parseInt(e.target.value, 10))}
         />
         <label style={{ gridArea: "config_row" }}>Row</label>
         <input
           style={{ gridArea: "config_row_input" }}
           type="number"
           value={row}
-          onChange={(e) => {
-            setRow(parseInt(e.target.value, 10));
-          }}
+          onChange={(e) => setRow(parseInt(e.target.value, 10))}
         />
         <label style={{ gridArea: "config_count" }}>Count</label>
         <input
           style={{ gridArea: "config_count_input" }}
           type="number"
           value={count}
-          onChange={(e) => {
-            setCount(parseInt(e.target.value, 10));
-          }}
+          onChange={(e) => setCount(parseInt(e.target.value, 10))}
         />
         <button
           style={{ gridArea: "config_close" }}
-          onClick={() => {
-            dialogRef.current?.open;
-            dialogRef.current?.close();
-          }}
+          onClick={() => gameCloseConfigDialog(game)}
         >
           Close
         </button>
@@ -437,39 +422,39 @@ const GameConfig = () => {
   );
 };
 
+const GameHeaderPlayerStyle = (player: GamePlayer): React.CSSProperties => {
+  return {
+    width: "100%",
+    backgroundColor: player === GamePlayer.green ? "green" : "red",
+  };
+};
+
 const GameHeader = () => {
   const game = useGameFromContext();
-  const { dialogRef, setPieces, setPlayer, player } = game;
+  const { pieces, hasWinner, player } = game;
 
   return (
     <div style={GameHeaderStyle}>
       <button
-        style={{
-          width: "100%",
-          backgroundColor: player === GamePlayer.green ? "green" : "red",
-        }}
-        onClick={() => {
-          setPlayer(gameTogglePlayer);
-        }}
+        style={GameHeaderPlayerStyle(player)}
+        onClick={() => gameTogglePlayer(game)}
       >
-        {player === GamePlayer.green ? "Green" : "Red"} Turn
+        {player === GamePlayer.green ? "Green" : "Red"}{" "}
+        {hasWinner === true ? "Winner" : "Turn"}
       </button>
       <button
         style={{ width: "100%" }}
-        onClick={() => {
-          dialogRef.current?.showModal();
-        }}
+        onClick={() => gameOpenConfigDialog(game)}
+        disabled={pieces.length !== 0}
       >
-        Config
+        Config Game
       </button>
       <button
         style={{ width: "100%" }}
-        onClick={() => {
-          setPieces([]);
-          setPlayer(GamePlayer.green);
-        }}
+        onClick={() => gameReset(game)}
+        disabled={pieces.length === 0}
       >
-        Clear
+        {hasWinner ? "Play Again" : "Reset All"}
       </button>
     </div>
   );
@@ -479,7 +464,6 @@ const Game = () => {
   return (
     <GameBoard>
       <GameHeader />
-      <GameButtons />
       <GameCells />
       <GamePieces />
       <GameConfig />

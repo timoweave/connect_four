@@ -1,4 +1,7 @@
-import { useState, useMemo, createContext, useContext } from "react";
+"use strict";
+
+/* eslint-disable react-refresh/only-export-components */
+import { useState, useMemo, createContext, useContext, useRef } from "react";
 
 export enum GamePlayer {
   green = "green",
@@ -11,10 +14,13 @@ export enum GameCellColor {
   red = "red",
 }
 
-export interface GamePiece {
-  color: GameCellColor;
+export interface GameCellCoord {
   row: number;
   col: number;
+}
+
+export interface GamePiece extends GameCellCoord {
+  color: GameCellColor;
 }
 
 export const useGame = (props: {
@@ -23,6 +29,7 @@ export const useGame = (props: {
   row: number;
   count: number;
 }) => {
+  const [error, setError] = useState<Error | null>(null);
   const [count, setCount] = useState<number>(props.count);
   const [size, setSize] = useState<number>(props.size);
   const [column, setColumn] = useState<number>(props.column);
@@ -30,6 +37,16 @@ export const useGame = (props: {
   const [winner, setWinner] = useState<GamePlayer | null>(null);
   const [player, setPlayer] = useState<GamePlayer>(GamePlayer.green);
   const [pieces, setPieces] = useState<GamePiece[]>([]);
+  const pieceLocation = useRef<Map<string, GamePlayer>>(
+    new Map<string, GamePlayer>()
+  );
+
+  const hasWinner = useMemo<boolean>(() => winner != null, [winner]);
+
+  const counts = useMemo<number[]>(
+    () => Array.from({ length: count }, (_, i) => i),
+    [count]
+  );
 
   const columns = useMemo<number[]>(
     () => Array.from({ length: props.column }, (_, i) => i),
@@ -41,10 +58,14 @@ export const useGame = (props: {
   );
 
   return {
+    error,
+    setError,
+    hasWinner,
     winner,
     setWinner,
     count,
     setCount,
+    counts,
     size,
     setSize,
     column,
@@ -57,28 +78,36 @@ export const useGame = (props: {
     setPlayer,
     pieces,
     setPieces,
+    pieceLocation,
   };
 };
 
 export type UseGameType = ReturnType<typeof useGame>;
 
+const emptyFunction = () => {};
+
 const USE_GAME_DEFAULT: UseGameType = {
+  error: null,
+  setError: emptyFunction,
+  hasWinner: false,
   winner: null,
-  setWinner: () => {},
+  setWinner: emptyFunction,
   count: 0,
-  setCount: () => {},
+  setCount: emptyFunction,
+  counts: [],
   size: 0,
-  setSize: () => {},
+  setSize: emptyFunction,
   column: 0,
-  setColumn: () => {},
+  setColumn: emptyFunction,
   columns: [],
   row: 0,
-  setRow: () => {},
+  setRow: emptyFunction,
   rows: [],
   player: GamePlayer.green,
-  setPlayer: () => {},
+  setPlayer: emptyFunction,
   pieces: [],
-  setPieces: () => {},
+  setPieces: emptyFunction,
+  pieceLocation: { current: new Map<string, GamePlayer>() },
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -102,7 +131,7 @@ export const gameFindNextRow = (
   game: UseGameType,
   col: number
 ): number | null => {
-  const { row, pieces } = game;
+  const { row, pieces, setError } = game;
 
   const rows = pieces
     .filter((a) => a.col === col)
@@ -110,24 +139,98 @@ export const gameFindNextRow = (
     .sort((a, b) => a - b);
 
   if (rows.length === row) {
-    // throw new Error(`no more row in column ${col}`); // for toaster
-    console.error(`no more row in column ${col}`);
+    const error = new Error(`no more row in column ${col}`);
+    setError(error);
+    console.error(error.message);
     return null;
   }
 
   return (rows[0] ?? row) - 1;
 };
 
+export interface GamePlayerPieceCount {
+  player: GamePlayer;
+  sum: number;
+  done: boolean;
+}
+
+export const gameHasWiningPiecesInThisDirection = (
+  game: UseGameType,
+  forwardDirection: (i: number) => GameCellCoord,
+  backwardDirection: (i: number) => GameCellCoord
+): boolean => {
+  const { pieceLocation, player, count, counts, column, row } = game;
+  const init: GamePlayerPieceCount = { player, sum: 0, done: false };
+
+  const forwardCoords = counts
+    .map(forwardDirection)
+    .filter((a) => a.col >= 0 && a.row >= 0 && a.col < column && a.row < row);
+  const backwardCoords = counts
+    .map(backwardDirection)
+    .filter((a) => a.col >= 0 && a.row >= 0 && a.col < column && a.row < row);
+
+  const [forward, backward] = [forwardCoords, backwardCoords].map((direction) =>
+    direction.reduce((ans: GamePlayerPieceCount, coord: GameCellCoord) => {
+      if (ans.done) {
+        return ans;
+      }
+
+      const locationKey = `${coord.row}_${coord.col}`;
+      if (pieceLocation.current.get(locationKey) !== player) {
+        return { ...ans, done: true };
+      }
+      return { ...ans, sum: ans.sum + 1 };
+    }, init)
+  );
+
+  const total = forward.sum + backward.sum;
+  return total >= count - 1;
+};
+
+export const gameHasWinner = (game: UseGameType, piece: GamePiece): boolean => {
+  const { pieceLocation, player } = game;
+  const { row, col } = piece;
+
+  pieceLocation.current.set(`${row}_${col}`, player);
+
+  return (
+    gameHasWiningPiecesInThisDirection(
+      game,
+      (i) => ({ col: col, row: row - i - 1 }), // up
+      (i) => ({ col: col, row: row + i + 1 }) // down
+    ) ||
+    gameHasWiningPiecesInThisDirection(
+      game,
+      (i) => ({ col: col - i - 1, row }), // left
+      (i) => ({ col: col + i + 1, row: row }) // right
+    ) ||
+    gameHasWiningPiecesInThisDirection(
+      game,
+      (i) => ({ col: col - i - 1, row: row + i + 1 }), // down-left
+      (i) => ({ col: col + i + 1, row: row - i - 1 }) // up-right
+    ) ||
+    gameHasWiningPiecesInThisDirection(
+      game,
+      (i) => ({ col: col - i - 1, row: -i - 1 }), // up-left
+      (i) => ({ col: col + i + 1, row: row + i + 1 }) // down-right
+    )
+  );
+};
+
 export const addPiece = (game: UseGameType, col: number): void => {
-  const { player, setPlayer, setPieces } = game;
+  const { player, setPlayer, setPieces, setWinner } = game;
   const color = gameGetCellColor(player);
   const row = gameFindNextRow(game, col);
   if (row == null) {
     return;
   }
 
-  setPieces((p) => [...p, { color, row, col }]);
+  const piece: GamePiece = { color, row, col };
+  const isWon = gameHasWinner(game, piece);
+
   setPlayer(gameTogglePlayer);
+  setPieces((p) => [...p, piece]);
+  setWinner((prevWinner) => (isWon === false ? prevWinner : player));
 };
 
 const gameCellGridArea = (props: { col: number; row: number }): string => {
@@ -140,24 +243,25 @@ const gamebuttonGridArea = (props: { col: number }): string => {
 
 const GameButtonStyle = (
   col: number,
-  player: GamePlayer
+  player: GamePlayer,
+  isDisabled: boolean
 ): React.CSSProperties => ({
   gridArea: gamebuttonGridArea({ col }),
   color: "white",
-  backgroundColor: gameGetCellColor(player),
+  backgroundColor: isDisabled ? "grey" : gameGetCellColor(player),
   width: "100%",
 });
 
 const GameButtons = () => {
   const game = useGameFromContext();
-  const { columns, player } = game;
+  const { hasWinner, columns, player } = game;
 
   return (
     <>
       {columns.map((col) => (
         <button
-          style={GameButtonStyle(col, player)}
-          disabled={gameIsFullColumn(game, col)}
+          style={GameButtonStyle(col, player, hasWinner)}
+          disabled={gameIsFullColumn(game, col) || hasWinner}
           key={col}
           onClick={() => {
             addPiece(game, col);
@@ -199,7 +303,7 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
       )
       .join(" "),
   ].join(" ");
-  console.log(gridTemplateAreas);
+
   return {
     display: "grid",
     borderRadius: "50%",

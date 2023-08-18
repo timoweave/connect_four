@@ -49,6 +49,7 @@ export interface UseGameType {
   isPlayerToggleable: boolean;
   setIsPlayerToggleable: React.Dispatch<React.SetStateAction<boolean>>;
   width: number;
+  playerTurnLabel: string;
 }
 
 export const useGame = (props?: Partial<UseGameType>): UseGameType => {
@@ -96,10 +97,17 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     () => Array.from({ length: row }, (_, i) => i),
     [row]
   );
+
   const width = useMemo<number>(
     () => (column + 2) /* gap */ * size,
     [column, size]
   );
+
+  const playerTurnLabel = useMemo(() => {
+    const prefix = player === GamePlayer.green ? "Green" : "Red";
+    const suffix = hasWinner === true ? "Winner" : "Turn";
+    return `${prefix} ${suffix}`;
+  }, [player, hasWinner]);
 
   return {
     error,
@@ -127,6 +135,7 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     isPlayerToggleable,
     setIsPlayerToggleable,
     width,
+    playerTurnLabel,
   };
 };
 
@@ -158,11 +167,29 @@ const USE_GAME_DEFAULT: UseGameType = {
   isPlayerToggleable: true,
   setIsPlayerToggleable: emptyFunction,
   width: 0,
+  playerTurnLabel: "",
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
 
-const useGameFromContext = () => useContext(GameContext);
+const useGameContext = () => useContext(GameContext);
+
+const useGameDataTestID = (dataTestID: string) => {
+  const game = useMemo(() => GameDataTestID(dataTestID), [dataTestID]);
+  const header = useMemo(() => GameHeaderDataTestID(dataTestID), [dataTestID]);
+  const config = useMemo(() => GameConfigDataTestID(dataTestID), [dataTestID]);
+  const cells = useMemo(() => GameCellsDataTestID(dataTestID), [dataTestID]);
+  const pieces = useMemo(() => GamePiecesDataTestID(dataTestID), [dataTestID]);
+
+  return {
+    dataTestID,
+    game,
+    header,
+    config,
+    cells,
+    pieces,
+  };
+};
 
 export const gameGetCellColor = (player: GamePlayer): GameCellColor => {
   return player === GamePlayer.green ? GameCellColor.green : GameCellColor.red;
@@ -257,7 +284,10 @@ export const gameHasWiningPiecesInThisDirection = (props: {
   return total >= count - 1;
 };
 
-export const gameHasWinner = (game: UseGameType, piece: GamePiece): boolean => {
+export const gameHasWiningPieces = (
+  game: UseGameType,
+  piece: GamePiece
+): boolean => {
   const { pieceLocation, player } = game;
   const { row, col } = piece;
 
@@ -309,22 +339,28 @@ export const gameAddPiece = (props: {
   }
 
   const piece: GamePiece = { color, row, col };
-  const isWon = gameHasWinner(game, piece);
-  const nextPlayer = isWon ? player : gameTogglePlayer(game);
+  const hasWon = gameHasWiningPieces(game, piece);
+  const nextPlayer = hasWon ? player : gameTogglePlayer(game);
 
   setPlayer(nextPlayer);
   setPieces((p) => [...p, piece]);
-  setWinner(() => (isWon === false ? null : player));
+  setWinner(() => (hasWon === false ? null : player));
 };
 
 export const gameOpenConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
-  dialogRef.current?.showModal();
+  const show = dialogRef.current?.show;
+  if (show) {
+    show();
+  }
 };
 
 export const gameCloseConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
-  dialogRef.current?.close();
+  const close = dialogRef.current?.close;
+  if (close) {
+    close();
+  }
 };
 
 export const gameReset = (game: UseGameType) => {
@@ -342,7 +378,7 @@ export const gameCellGridArea = (props: {
   return `game_cell_${props.row}_${props.col}`;
 };
 
-interface GameProps {
+export interface GameProps {
   style?: React.CSSProperties;
   dataTestID?: string;
 }
@@ -396,24 +432,30 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
   };
 };
 
+export const GameCellsDataTestID = (dataTestID: string) => {
+  return {
+    dataTestID,
+    cell: (props: { row?: number; col: number }) =>
+      `${dataTestID}_${props.row ?? 0}_${props.col}`,
+  };
+};
+
 export interface GameCellsProps extends GameProps {}
 
 export const GameCells = (props?: GameCellsProps) => {
-  const game = useGameFromContext();
+  const game = useGameContext();
+  const { cells } = useGameDataTestID(props?.dataTestID ?? "GAME_CELL");
   const { columns, rows, size } = game;
   const color = GameCellColor.white;
-  const outlined = true;
-
-  console.log({ props });
 
   return (
     <>
       {columns.map((col) =>
         rows.map((row) => (
           <div
-            data-testid={`${props?.dataTestID}_${row}_${col}`}
+            data-testid={cells.cell({ col, row })}
             key={gameCellGridArea({ col, row })}
-            style={GameCellStyle({ row, col, color, size, outlined })}
+            style={GameCellStyle({ row, col, color, size, outlined: true })}
             onClick={() => gameAddPiece({ game, col })}
           ></div>
         ))
@@ -422,17 +464,21 @@ export const GameCells = (props?: GameCellsProps) => {
   );
 };
 
+export const GamePiecesDataTestID = GameCellsDataTestID;
 export interface GamePiecesProps extends GameProps {}
 
 export const GamePieces = (props?: GamePiecesProps) => {
-  const game = useGameFromContext();
+  const game = useGameContext();
+  const { pieces: dataTestID } = useGameDataTestID(
+    props?.dataTestID ?? "GAME_PIECE"
+  );
   const { pieces, size } = game;
 
   return (
     <>
       {pieces.map(({ color, row, col }) => (
         <div
-          data-testid={`${props?.dataTestID}_${row}_${col}`}
+          data-testid={dataTestID.cell({ col, row })}
           key={gameCellGridArea({ col, row })}
           style={GameCellStyle({ color, col, row, size })}
         ></div>
@@ -441,19 +487,18 @@ export const GamePieces = (props?: GamePiecesProps) => {
   );
 };
 
-export interface GameBoardProps extends GameProps {
-  children: React.ReactNode;
-}
+export interface GameBoardProps extends GameProps, React.PropsWithChildren {}
 
 export const GameBoard = (props: GameBoardProps) => {
-  const game = useGameFromContext();
+  const game = useGameContext();
   const { children } = props;
+  const style = useMemo<React.CSSProperties>(
+    () => ({ ...GameBoardStyle(game), ...props?.style }),
+    [props?.style, game]
+  );
 
   return (
-    <div
-      data-testid={props?.dataTestID}
-      style={{ ...GameBoardStyle(game), ...props?.style }}
-    >
+    <div data-testid={props?.dataTestID} style={style}>
       {children}
     </div>
   );
@@ -477,55 +522,84 @@ const GameConfigStyle: React.CSSProperties = {
   display: "grid",
   gap: "1rem",
   gridTemplateAreas: `
-  "config_header config_header"
-  "config_column config_column_input"
-  "config_row    config_row_input"
-  "config_count  config_count_input"
-  "empty         config_close"
+  "config_header       config_header"
+  "config_column_label config_column"
+  "config_row_label    config_row"
+  "config_count_label  config_count"
+  "empty               config_close"
   `,
   margin: "1rem 5rem",
+};
+
+export const GameConfigDataTestID = (dataTestID: string) => {
+  return {
+    dataTestID,
+    columnLabel: `${dataTestID}_COLUMN_LABEL`,
+    rowLabel: `${dataTestID}_ROW_LABEL`,
+    countLabel: `${dataTestID}_COUNT_LABEL`,
+    column: `${dataTestID}_COLUMN`,
+    row: `${dataTestID}_ROW`,
+    count: `${dataTestID}_COUNT`,
+    close: `${dataTestID}_CLOSE`,
+  };
 };
 
 export interface GameConfigProps extends GameProps {}
 
 export const GameConfig = (props?: GameConfigProps) => {
-  const game = useGameFromContext();
+  const game = useGameContext();
+  const { config } = useGameDataTestID(props?.dataTestID ?? "GAME_CONFIG");
   const { dialogRef, column, setColumn, row, setRow, count, setCount } = game;
+  const style = useMemo<React.CSSProperties>(
+    () => ({ ...GameConfigDialogStyle, ...props?.style }),
+    [props?.style]
+  );
 
   return (
-    <dialog
-      data-testid={props?.dataTestID}
-      ref={dialogRef}
-      style={{ ...GameConfigDialogStyle, ...props?.style }}
-    >
+    <dialog data-testid={config.dataTestID} ref={dialogRef} style={style}>
       <div style={GameConfigStyle}>
         <h3 style={{ gridArea: "config_header" }}>Game Configuration</h3>
-        <label style={{ gridArea: "config_column" }}>Column</label>
+        <label
+          data-testid={config.columnLabel}
+          style={{ gridArea: "config_column_label" }}
+        >
+          Column
+        </label>
         <input
-          data-testid={`${props?.dataTestID}_COLUMN_INPUT`}
-          style={{ gridArea: "config_column_input" }}
+          data-testid={config.column}
+          style={{ gridArea: "config_column" }}
           type="number"
           value={column}
           onChange={(e) => setColumn(parseInt(e.target.value, 10))}
         />
-        <label style={{ gridArea: "config_row" }}>Row</label>
+        <label
+          data-testid={config.rowLabel}
+          style={{ gridArea: "config_row_label" }}
+        >
+          Row
+        </label>
         <input
-          data-testid={`${props?.dataTestID}_ROW_INPUT`}
-          style={{ gridArea: "config_row_input" }}
+          data-testid={config.row}
+          style={{ gridArea: "config_row" }}
           type="number"
           value={row}
           onChange={(e) => setRow(parseInt(e.target.value, 10))}
         />
-        <label style={{ gridArea: "config_count" }}>Count</label>
+        <label
+          data-testid={config.countLabel}
+          style={{ gridArea: "config_count_label" }}
+        >
+          Count
+        </label>
         <input
-          data-testid={`${props?.dataTestID}_COUNT_INPUT`}
-          style={{ gridArea: "config_count_input" }}
+          data-testid={config.count}
+          style={{ gridArea: "config_count" }}
           type="number"
           value={count}
           onChange={(e) => setCount(parseInt(e.target.value, 10))}
         />
         <button
-          data-testid={`${props?.dataTestID}_CLOSE_BUTTON`}
+          data-testid={config.close}
           style={{ gridArea: "config_close" }}
           onClick={() => gameCloseConfigDialog(game)}
         >
@@ -547,25 +621,34 @@ export const GameHeaderPlayerStyle = (
 
 export interface GameHeaderProps extends GameProps {}
 
-export const GameHeader = (props?: GameHeaderProps) => {
-  const game = useGameFromContext();
-  const { pieces, hasWinner, player } = game;
+export const GameHeaderDataTestID = (dataTestID: string) => {
+  return {
+    dataTestID,
+    playerTurn: `${dataTestID}_PLAYER_TURN`,
+    configGame: `${dataTestID}_CONFIG_GAME`,
+    resetAll: `${dataTestID}_RESET_ALL`,
+  };
+};
 
+export const GameHeader = (props?: GameHeaderProps) => {
+  const game = useGameContext();
+  const { header } = useGameDataTestID(props?.dataTestID ?? "GAME_HEADER");
+  const { pieces, hasWinner, player, playerTurnLabel } = game;
+  const style = useMemo<React.CSSProperties>(
+    () => ({ ...GameHeaderStyle, ...props?.style }),
+    [props?.style]
+  );
   return (
-    <div
-      data-testid={props?.dataTestID}
-      style={{ ...GameHeaderStyle, ...props?.style }}
-    >
+    <div data-testid={header.dataTestID} style={style}>
       <button
-        data-testid={"GAME_HEADER_PLAYER_TURN_BUTTON"}
+        data-testid={header.playerTurn}
         style={GameHeaderPlayerStyle(player)}
         onClick={() => gameTogglePlayer(game)}
       >
-        {player === GamePlayer.green ? "Green" : "Red"}{" "}
-        {hasWinner === true ? "Winner" : "Turn"}
+        {playerTurnLabel}
       </button>
       <button
-        data-testid={"GAME_HEADER_CONFIG_GAME_BUTTON"}
+        data-testid={header.configGame}
         style={{ width: "100%" }}
         onClick={() => gameOpenConfigDialog(game)}
         disabled={pieces.length !== 0}
@@ -573,7 +656,7 @@ export const GameHeader = (props?: GameHeaderProps) => {
         Config Game
       </button>
       <button
-        data-testid={"GAME_HEADER_RESET_ALL_BUTTON"}
+        data-testid={header.resetAll}
         style={{ width: "100%" }}
         onClick={() => gameReset(game)}
         disabled={pieces.length === 0}
@@ -589,33 +672,68 @@ export const GameStyle: React.CSSProperties = {
   placeItems: "center",
 };
 
-export const Game = (props?: GameProps) => {
-  const dataTestID = props?.dataTestID;
+export const GameDataTestID = (dataTestID: string) => {
+  return {
+    dataTestID,
+    board: `${dataTestID}_BOARD`,
+    header: `${dataTestID}_HEADER`,
+    cells: `${dataTestID}_CELLS`,
+    pieces: `${dataTestID}_PIECES`,
+    config: `${dataTestID}_CONFIG`,
+  };
+};
+
+export const Game = (props?: GameProps): JSX.Element => {
+  const { game } = useGameDataTestID(props?.dataTestID ?? "GAME");
+  const style = useMemo<React.CSSProperties>(
+    () => ({ ...GameStyle, ...props?.style }),
+    [props?.style]
+  );
 
   return (
-    <div data-testid={dataTestID} style={{ ...GameStyle, ...props?.style }}>
-      <GameBoard dataTestID={`${dataTestID}_BOARD`}>
-        <GameHeader dataTestID={`${dataTestID}_HEADER`} />
-        <GameCells dataTestID={`${dataTestID}_CELLS`} />
-        <GamePieces dataTestID={`${dataTestID}_PIECES`} />
-        <GameConfig dataTestID={`${dataTestID}_CONFIG`} />
+    <div data-testid={game.dataTestID} style={style}>
+      <GameBoard dataTestID={game.board}>
+        <GameHeader dataTestID={game.header} />
+        <GameCells dataTestID={game.cells} />
+        <GamePieces dataTestID={game.pieces} />
+        <GameConfig dataTestID={game.config} />
       </GameBoard>
     </div>
   );
 };
 
-interface GameProviderProps extends GameProps {
-  children: React.ReactNode;
-}
+export interface GameProviderProps
+  extends GameProps,
+    Partial<UseGameType>,
+    React.PropsWithChildren {}
 
 export const GameProvider = (props: GameProviderProps) => {
-  const { children } = props;
-  const value = useGame();
+  const { children, ...others } = props;
+  const value = useGame(others);
 
   return (
     <GameContext.Provider value={value}>
       <div data-testid={props?.dataTestID}>{children}</div>
     </GameContext.Provider>
+  );
+};
+
+export interface GameProviderWithGameBoard
+  extends GameProps,
+    Partial<UseGameType>,
+    React.PropsWithChildren {}
+
+export const GameProviderWithGameBoard = (
+  props: GameProviderWithGameBoard
+): JSX.Element => {
+  const { children, ...others } = props;
+
+  return (
+    <GameProvider {...others}>
+      <GameBoard>
+        <>{children}</>
+      </GameBoard>
+    </GameProvider>
   );
 };
 

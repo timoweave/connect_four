@@ -63,13 +63,13 @@ describe("useGame, about basic", () => {
   });
 
   test("init game state with pieces", () => {
-    //   0    1    2    3    4    5    6
+    //   0    1     2     3     4     5     6
     // 0
-    // 1      (1,1)     (1,3)     (1,5)
-    // 2           (2,2)(2,3)(2,4)
-    // 3      (3,1)(3,2) add (3,4)(3,5)
-    // 4           (4,2)(4,3)(4,4)
-    // 5      (5,1)     (5,3)     (5,5)
+    // 1      G-1,1       G-1,3       G-1,5
+    // 2            G-2,2 G-2,3 G-2,4
+    // 3      G-3,1 G-3,2  add  G-3,4 G-3,5
+    // 4            G-4,2 G-4,3 G-4,4
+    // 5      G-5,1       G-5,3       G-5,5
     // 6
     const rendered = renderHook(() =>
       useGame({
@@ -102,52 +102,48 @@ describe("useGame, about basic", () => {
     const game = () => rendered.result.current;
     expect(game().pieces).toHaveLength(16);
     expect(game()).toContain({ hasWinner: false, column: 7, row: 7, count: 5 });
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "3_2" => "green",
-          "3_1" => "green",
-          "3_4" => "green",
-          "3_5" => "green",
-          "2_3" => "green",
-          "1_3" => "green",
-          "4_3" => "green",
-          "5_3" => "green",
-          "1_1" => "green",
-          "2_2" => "green",
-          "4_4" => "green",
-          "5_5" => "green",
-          "5_1" => "green",
-          "4_2" => "green",
-          "2_4" => "green",
-          "1_5" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "3_2" => "green",
+        "3_1" => "green",
+        "3_4" => "green",
+        "3_5" => "green",
+        "2_3" => "green",
+        "1_3" => "green",
+        "4_3" => "green",
+        "5_3" => "green",
+        "1_1" => "green",
+        "2_2" => "green",
+        "4_4" => "green",
+        "5_5" => "green",
+        "5_1" => "green",
+        "4_2" => "green",
+        "2_4" => "green",
+        "1_5" => "green",
       }
     `);
 
     act(() => gameAddPiece({ game: game(), col: 3, row: 3 }));
     expect(game().pieces).toHaveLength(17);
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "3_2" => "green",
-          "3_1" => "green",
-          "3_4" => "green",
-          "3_5" => "green",
-          "2_3" => "green",
-          "1_3" => "green",
-          "4_3" => "green",
-          "5_3" => "green",
-          "1_1" => "green",
-          "2_2" => "green",
-          "4_4" => "green",
-          "5_5" => "green",
-          "5_1" => "green",
-          "4_2" => "green",
-          "2_4" => "green",
-          "1_5" => "green",
-          "3_3" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "3_2" => "green",
+        "3_1" => "green",
+        "3_4" => "green",
+        "3_5" => "green",
+        "2_3" => "green",
+        "1_3" => "green",
+        "4_3" => "green",
+        "5_3" => "green",
+        "1_1" => "green",
+        "2_2" => "green",
+        "4_4" => "green",
+        "5_5" => "green",
+        "5_1" => "green",
+        "4_2" => "green",
+        "2_4" => "green",
+        "1_5" => "green",
+        "3_3" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -182,12 +178,12 @@ describe("useGame, about pieces", () => {
   });
 
   test("add no more than 3 piece once has a winner", () => {
-    //   0    1    2    3    4
+    //   0     1     2     3     4
     // 0
     // 1
     // 2
     // 3
-    // 4 (4,0)(4,1)(4,2)x    x     x
+    // 4 R-4,0 R-4,1 R-4,2 x     x      x
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 3, column: 5, row: 5 })
@@ -235,12 +231,12 @@ describe("useGame, about pieces", () => {
   });
 
   test("add 3 horizontal pieces and find winner", () => {
-    //   0    1    2    3    4
+    //   0     1     2     3     4
     // 0
     // 1
     // 2
     // 3
-    // 4 (4,0)(4,1)(4,2)
+    // 4 G-4,0 G-4,1 G-4,2
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 3, column: 5, row: 5 })
@@ -252,13 +248,11 @@ describe("useGame, about pieces", () => {
     act(() => gameAddPiece({ game: game(), col: 1 }));
     act(() => gameAddPiece({ game: game(), col: 2 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_0" => "green",
-          "4_1" => "green",
-          "4_2" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_0" => "green",
+        "4_1" => "green",
+        "4_2" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -375,12 +369,12 @@ describe("useGame, about player", () => {
 
 describe("useGame, vertical winner check", () => {
   test("has 3 vertical (up/down) winner", () => {
-    //   0    1    2    3    4
-    // 0 (0,0)
-    // 1 (1,0)
-    // 2 (2,0)
-    // 3 (3,0)
-    // 4 (4,0)
+    //   0     1     2     3     4
+    // 0 G-0,0
+    // 1 G-1,0
+    // 2 G-2,0
+    // 3 G-3,0
+    // 4 G-4,0
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 3, column: 5, row: 5 })
@@ -394,13 +388,11 @@ describe("useGame, vertical winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 0, row: 1 }));
     act(() => gameAddPiece({ game: game(), col: 0, row: 0 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_0" => "green",
-          "3_0" => "green",
-          "2_0" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_0" => "green",
+        "3_0" => "green",
+        "2_0" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -408,12 +400,12 @@ describe("useGame, vertical winner check", () => {
   });
 
   test("has 4 vertical (up/down) winner", () => {
-    //   0    1    2    3    4
-    // 0      (0,1)
-    // 1      (1,1)
-    // 2      (2,1)
-    // 3      (3,1)
-    // 4      (4,1)
+    //   0     1     2     3     4
+    // 0       G-0,1
+    // 1       G-1,1
+    // 2       G-2,1
+    // 3       G-3,1
+    // 4       G-4,1
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 4, column: 5, row: 5 })
@@ -427,27 +419,25 @@ describe("useGame, vertical winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 1, row: 1 }));
     act(() => gameAddPiece({ game: game(), col: 1, row: 0 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+        Map {
           "4_1" => "green",
           "3_1" => "green",
           "2_1" => "green",
           "1_1" => "green",
-        },
-      }
-    `);
+        }
+      `);
     expect(game().hasWinner).toBeTruthy();
     expect(game().winner).toEqual(GamePlayer.green);
   });
 
   test("has 5 vertical (up/down) winner", () => {
-    //   0    1    2    3    4
-    // 0           (0,2)
-    // 1           (1,2)
-    // 2           (2,2)
-    // 3           (3,2)
-    // 4           (4,2)
+    //   0     1     2     3     4
+    // 0             G-0,2
+    // 1             G-1,2
+    // 2             G-2,2
+    // 3             G-3,2
+    // 4             G-4,2
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 5, column: 5, row: 5 })
@@ -461,15 +451,13 @@ describe("useGame, vertical winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 2, row: 1 }));
     act(() => gameAddPiece({ game: game(), col: 2, row: 0 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_2" => "green",
-          "3_2" => "green",
-          "2_2" => "green",
-          "1_2" => "green",
-          "0_2" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_2" => "green",
+        "3_2" => "green",
+        "2_2" => "green",
+        "1_2" => "green",
+        "0_2" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -479,12 +467,12 @@ describe("useGame, vertical winner check", () => {
 
 describe("useGame, horizontal winner check", () => {
   test("has 3 horizontal (left/right) winner", () => {
-    //   0    1    2    3    4
+    //   0     1     2     3     4
     // 0
     // 1
     // 2
     // 3
-    // 4 (4,0)(4,1)(4,2)(4,3)(4,4)
+    // 4 G-4,0 G-4,1 G-4,2 G-4,3 G-4,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 3, column: 5, row: 5 })
@@ -498,13 +486,11 @@ describe("useGame, horizontal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 3, row: 4 }));
     act(() => gameAddPiece({ game: game(), col: 4, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_0" => "green",
-          "4_1" => "green",
-          "4_2" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_0" => "green",
+        "4_1" => "green",
+        "4_2" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -512,12 +498,12 @@ describe("useGame, horizontal winner check", () => {
   });
 
   test("has 4 horizontal (left/right) winner", () => {
-    //   0    1    2    3    4
-    // 0      (0,1)
-    // 1      (1,1)
-    // 2      (2,1)
-    // 3      (3,1)
-    // 4      (4,1)
+    //   0     1     2     3     4
+    // 0       G-0,1
+    // 1       G-1,1
+    // 2       G-2,1
+    // 3       G-3,1
+    // 4       G-4,1
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 4, column: 5, row: 5 })
@@ -531,14 +517,12 @@ describe("useGame, horizontal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 1, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 1, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_1" => "green",
-          "1_1" => "green",
-          "2_1" => "green",
-          "3_1" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_1" => "green",
+        "1_1" => "green",
+        "2_1" => "green",
+        "3_1" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -546,12 +530,12 @@ describe("useGame, horizontal winner check", () => {
   });
 
   test("has 5 horizontal (left/right) winner", () => {
-    //   0    1    2    3    4
-    // 0      (0,1)
-    // 1      (1,1)
-    // 2      (2,1)
-    // 3      (3,1)
-    // 4      (4,1)
+    //   0     1     2     3     4
+    // 0       G-0,1
+    // 1       G-1,1
+    // 2       G-2,1
+    // 3       G-3,1
+    // 4       G-4,1
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 5, column: 5, row: 5 })
@@ -565,15 +549,13 @@ describe("useGame, horizontal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 1, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 1, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_1" => "green",
-          "1_1" => "green",
-          "2_1" => "green",
-          "3_1" => "green",
-          "4_1" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_1" => "green",
+        "1_1" => "green",
+        "2_1" => "green",
+        "3_1" => "green",
+        "4_1" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -583,12 +565,12 @@ describe("useGame, horizontal winner check", () => {
 
 describe("useGame, rise diagonal winner check", () => {
   test("has 3 rise diagonal (down-left/up-right) winner", () => {
-    //   0    1    2    3    4
-    // 0                     (0,4)
-    // 1                (1,3)
-    // 2           (2,2)
-    // 3      (1,3)
-    // 4 (0,4)
+    //   0     1     2     3     4
+    // 0                         R-0,4
+    // 1                   R-1,3
+    // 2             R-2,2
+    // 3       R-1,3
+    // 4 R-0,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 3, column: 5, row: 5 })
@@ -604,13 +586,11 @@ describe("useGame, rise diagonal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 1, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 0, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_4" => "red",
-          "1_3" => "red",
-          "2_2" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_4" => "red",
+        "1_3" => "red",
+        "2_2" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(3);
@@ -619,12 +599,12 @@ describe("useGame, rise diagonal winner check", () => {
   });
 
   test("has 4 rise diagonal (down-left/up-right) winner", () => {
-    //   0    1    2    3    4
-    // 0                     (0,4)
-    // 1                (1,3)
-    // 2           (2,2)
-    // 3      (1,3)
-    // 4 (0,4)
+    //   0     1     2     3     4
+    // 0                         R-0,4
+    // 1                   R-1,3
+    // 2             R-2,2
+    // 3       R-1,3
+    // 4 R-0,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 4, column: 5, row: 5 })
@@ -640,14 +620,12 @@ describe("useGame, rise diagonal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 1, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 0, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_4" => "red",
-          "1_3" => "red",
-          "2_2" => "red",
-          "3_1" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_4" => "red",
+        "1_3" => "red",
+        "2_2" => "red",
+        "3_1" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(4);
@@ -656,12 +634,12 @@ describe("useGame, rise diagonal winner check", () => {
   });
 
   test("has 5 rise diagonal (down-left/up-right) winner", () => {
-    //   0    1    2    3    4
-    // 0                     (0,4)
-    // 1                (1,3)
-    // 2           (2,2)
-    // 3      (1,3)
-    // 4 (0,4)
+    //   0     1     2     3     4
+    // 0                         R-0,4
+    // 1                   R-1,3
+    // 2             R-2,2
+    // 3       R-1,3
+    // 4 R-0,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 5, column: 5, row: 5 })
@@ -677,15 +655,13 @@ describe("useGame, rise diagonal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 1, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 0, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_4" => "red",
-          "1_3" => "red",
-          "2_2" => "red",
-          "3_1" => "red",
-          "4_0" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_4" => "red",
+        "1_3" => "red",
+        "2_2" => "red",
+        "3_1" => "red",
+        "4_0" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(5);
@@ -696,12 +672,12 @@ describe("useGame, rise diagonal winner check", () => {
 
 describe("useGame, fall diagonal winner check", () => {
   test("has 3 fall diagonal (up-left/down-right) winner", () => {
-    //   0    1    2    3    4
-    // 0 (0,0)
-    // 1      (1,1)
-    // 2           (2,2)
-    // 3                (3,3)
-    // 4                     (4,4)
+    //   0     1     2     3     4
+    // 0 R-0,0
+    // 1       R-1,1
+    // 2             R-2,2
+    // 3                   R-3,3
+    // 4                         R-4,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 3, column: 5, row: 5 })
@@ -717,13 +693,11 @@ describe("useGame, fall diagonal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 3, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 4, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_0" => "red",
-          "1_1" => "red",
-          "2_2" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_0" => "red",
+        "1_1" => "red",
+        "2_2" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(3);
@@ -732,12 +706,12 @@ describe("useGame, fall diagonal winner check", () => {
   });
 
   test("has 4 fall diagonal (up-left/down-right) winner", () => {
-    //   0    1    2    3    4
-    // 0 (0,0)
-    // 1      (1,1)
-    // 2           (2,2)
-    // 3                (3,3)
-    // 4                     (4,4)
+    //   0     1     2     3     4
+    // 0 R-0,0
+    // 1       R-1,1
+    // 2             R-2,2
+    // 3                   R-3,3
+    // 4                         R-4,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 4, column: 5, row: 5 })
@@ -753,14 +727,12 @@ describe("useGame, fall diagonal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 3, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 4, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_0" => "red",
-          "1_1" => "red",
-          "2_2" => "red",
-          "3_3" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_0" => "red",
+        "1_1" => "red",
+        "2_2" => "red",
+        "3_3" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(4);
@@ -769,12 +741,12 @@ describe("useGame, fall diagonal winner check", () => {
   });
 
   test("has 5 fall diagonal (up-left/down-right) winner", () => {
-    //   0    1    2    3    4
-    // 0 (0,0)
-    // 1      (1,1)
-    // 2           (2,2)
-    // 3                (3,3)
-    // 4                     (4,4)
+    //   0     1     2     3     4
+    // 0 R-0,0
+    // 1       R-1,1
+    // 2             R-2,2
+    // 3                   R-3,3
+    // 4                         R-4,4
 
     const rendered = renderHook(() =>
       useGame({ size: 10, count: 5, column: 5, row: 5 })
@@ -790,15 +762,13 @@ describe("useGame, fall diagonal winner check", () => {
     act(() => gameAddPiece({ game: game(), col: 3, row: 3 }));
     act(() => gameAddPiece({ game: game(), col: 4, row: 4 }));
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "0_0" => "red",
-          "1_1" => "red",
-          "2_2" => "red",
-          "3_3" => "red",
-          "4_4" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "0_0" => "red",
+        "1_1" => "red",
+        "2_2" => "red",
+        "3_3" => "red",
+        "4_4" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(5);
@@ -823,15 +793,13 @@ describe("game execrise", () => {
       act(() => gameAddPiece({ game: game(), col }))
     );
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_0" => "green",
-          "4_2" => "red",
-          "3_0" => "green",
-          "3_2" => "red",
-          "2_0" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_0" => "green",
+        "4_2" => "red",
+        "3_0" => "green",
+        "3_2" => "red",
+        "2_0" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -853,15 +821,13 @@ describe("game execrise", () => {
       act(() => gameAddPiece({ game: game(), col }))
     );
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_0" => "green",
-          "3_0" => "red",
-          "4_1" => "green",
-          "3_1" => "red",
-          "4_2" => "green",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_0" => "green",
+        "3_0" => "red",
+        "4_1" => "green",
+        "3_1" => "red",
+        "4_2" => "green",
       }
     `);
     expect(game().hasWinner).toBeTruthy();
@@ -884,20 +850,18 @@ describe("game execrise", () => {
       act(() => gameAddPiece({ game: game(), col }))
     );
 
-    expect(game().pieceLocation).toMatchInlineSnapshot(`
-      {
-        "current": Map {
-          "4_0" => "green",
-          "3_0" => "red",
-          "4_1" => "green",
-          "4_2" => "red",
-          "3_1" => "green",
-          "2_1" => "red",
-          "3_2" => "green",
-          "2_2" => "red",
-          "2_0" => "green",
-          "1_2" => "red",
-        },
+    expect(game().pieceLocation.current).toMatchInlineSnapshot(`
+      Map {
+        "4_0" => "green",
+        "3_0" => "red",
+        "4_1" => "green",
+        "4_2" => "red",
+        "3_1" => "green",
+        "2_1" => "red",
+        "3_2" => "green",
+        "2_2" => "red",
+        "2_0" => "green",
+        "1_2" => "red",
       }
     `);
     expect(game().pieces).toHaveLength(10);

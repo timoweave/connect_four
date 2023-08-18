@@ -17,6 +17,7 @@
 1. when a new piece is added, we then search for the adjacent consecutive piece of the same player. there are vertical (up and down) as shown in green arrows, horizontal (left, right) as shown in blue arrows, diagonal rise (down-left, up-right) as shown in purple arrows, diagonal fall (up-left, down-right) as shown in orange arrows,
 ![plot](./doc/game-find-winner.png)
 
+
 # Screenshots
 1. fresh game 
 ![plot](./doc/game-board.png)
@@ -42,3 +43,7 @@
 
 1. the game board is arranged for 6x6 board.
 ![layout](doc/game-layout-6x6-blank.png)
+
+# Demo
+1. play a game or two, where first game is 5x5 and next game is 4x4
+![plot](./doc/game-demo.gif)

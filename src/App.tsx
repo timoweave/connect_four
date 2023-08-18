@@ -1,7 +1,14 @@
 "use strict";
 
 /* eslint-disable react-refresh/only-export-components */
-import { useState, useMemo, createContext, useContext, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  createContext,
+  useContext,
+  useRef,
+} from "react";
 
 export enum GamePlayer {
   green = "green",
@@ -50,6 +57,9 @@ export interface UseGameType {
   setIsPlayerToggleable: React.Dispatch<React.SetStateAction<boolean>>;
   width: number;
   playerTurnLabel: string;
+  movingPiece: GamePiece | null;
+  setMovingPiece: React.Dispatch<React.SetStateAction<GamePiece | null>>;
+  hasMovingPiece: boolean;
 }
 
 export const useGame = (props?: Partial<UseGameType>): UseGameType => {
@@ -80,6 +90,9 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
   const dialogRef = useRef<HTMLDialogElement>(
     props?.dialogRef?.current ?? null
   );
+  const [movingPiece, setMovingPiece] = useState<GamePiece | null>(
+    props?.movingPiece ?? null
+  );
 
   const hasWinner = useMemo<boolean>(() => winner != null, [winner]);
 
@@ -109,6 +122,8 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     return `${prefix} ${suffix}`;
   }, [player, hasWinner]);
 
+  const hasMovingPiece = useMemo(() => movingPiece != null, [movingPiece]);
+
   return {
     error,
     setError,
@@ -136,6 +151,9 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     setIsPlayerToggleable,
     width,
     playerTurnLabel,
+    movingPiece,
+    setMovingPiece,
+    hasMovingPiece,
   };
 };
 
@@ -168,6 +186,9 @@ const USE_GAME_DEFAULT: UseGameType = {
   setIsPlayerToggleable: emptyFunction,
   width: 0,
   playerTurnLabel: "",
+  movingPiece: null,
+  setMovingPiece: emptyFunction,
+  hasMovingPiece: false,
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -180,6 +201,10 @@ const useGameDataTestID = (dataTestID: string) => {
   const config = useMemo(() => GameConfigDataTestID(dataTestID), [dataTestID]);
   const cells = useMemo(() => GameCellsDataTestID(dataTestID), [dataTestID]);
   const pieces = useMemo(() => GamePiecesDataTestID(dataTestID), [dataTestID]);
+  const movingPiece = useMemo(
+    () => GameMovingPieceDataTestID(dataTestID),
+    [dataTestID]
+  );
 
   return {
     dataTestID,
@@ -188,6 +213,7 @@ const useGameDataTestID = (dataTestID: string) => {
     config,
     cells,
     pieces,
+    movingPiece,
   };
 };
 
@@ -347,6 +373,23 @@ export const gameAddPiece = (props: {
   setWinner(() => (hasWon === false ? null : player));
 };
 
+export const gameAddMovingPiece = (props: {
+  game: UseGameType;
+  col: number;
+  row: number;
+}) => {
+  const { col, row, game } = props;
+  const { hasWinner, hasMovingPiece, setMovingPiece, player } = game;
+  if (hasMovingPiece || hasWinner) {
+    return;
+  }
+
+  const color = gameGetCellColor(player);
+  const piece: GamePiece = { color, row, col };
+
+  setMovingPiece(piece);
+};
+
 export const gameOpenConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
   dialogRef.current?.showModal();
@@ -358,10 +401,12 @@ export const gameCloseConfigDialog = (game: UseGameType) => {
 };
 
 export const gameReset = (game: UseGameType) => {
-  const { setPieces, setPlayer, setWinner, pieceLocation } = game;
+  const { setMovingPiece, setPieces, setPlayer, setWinner, pieceLocation } =
+    game;
   setPieces([]);
   setPlayer(GamePlayer.green);
   setWinner(null);
+  setMovingPiece(null);
   pieceLocation.current.clear();
 };
 
@@ -450,7 +495,7 @@ export const GameCells = (props?: GameCellsProps) => {
             data-testid={cells.cell({ col, row })}
             key={gameCellGridArea({ col, row })}
             style={GameCellStyle({ row, col, color, size, outlined: true })}
-            onClick={() => gameAddPiece({ game, col })}
+            onClick={() => gameAddMovingPiece({ game, col, row })}
           ></div>
         ))
       )}
@@ -478,6 +523,69 @@ export const GamePieces = (props?: GamePiecesProps) => {
         ></div>
       ))}
     </>
+  );
+};
+
+export const useGamePieceMovingRow = (
+  intervalTime: number = 100
+): number | null => {
+  const game = useGameContext();
+  const { movingPiece, setMovingPiece } = game;
+  const [movingRow, setMovingRow] = useState<number | null>(
+    movingPiece?.row ?? null
+  );
+
+  useEffect(() => {
+    if (movingPiece == null) {
+      return;
+    }
+    const { col } = movingPiece;
+    const rowBottom = gameFindNextRow(game, col);
+
+    if (movingRow != null && movingRow === rowBottom) {
+      gameAddPiece({ game, col, row: movingRow });
+      setMovingRow(null);
+      setMovingPiece(null);
+    } else {
+      setTimeout(() => {
+        setMovingRow((prevRow) => {
+          return (prevRow ?? movingPiece.row - 1) + 1;
+        });
+      }, intervalTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movingRow, movingPiece, intervalTime]);
+
+  return movingRow;
+};
+
+export const GameMovingPieceDataTestID = (dataTestID: string) => {
+  return {
+    piece: (props: { col: number; color: GameCellColor }) =>
+      `${dataTestID}_MOVING_PIECE_${props.color}_${props.col}`,
+  };
+};
+
+interface GameMovingPiece extends GameProps {}
+
+export const GameMovingPiece = (props?: GameMovingPiece) => {
+  const { size, movingPiece } = useGameContext();
+  const row = useGamePieceMovingRow();
+  const dataTestID = useGameDataTestID(
+    props?.dataTestID ?? "GAME_MOVING_PIECE"
+  );
+  const { col, color } = movingPiece ?? {};
+
+  if (row == null || col == null || color == null) {
+    return null;
+  }
+
+  return (
+    <div
+      data-testid={dataTestID.movingPiece.piece({ col, color })}
+      key={gameCellGridArea({ col, row })}
+      style={GameCellStyle({ color, col, row, size })}
+    ></div>
   );
 };
 
@@ -604,12 +712,17 @@ export const GameConfig = (props?: GameConfigProps) => {
   );
 };
 
-export const GameHeaderPlayerStyle = (
-  player: GamePlayer
+export const GameHeaderPlayerTurnStyle = (
+  player: GamePlayer,
+  hasMovingPiece: boolean
 ): React.CSSProperties => {
   return {
     width: "100%",
-    backgroundColor: player === GamePlayer.green ? "green" : "red",
+    backgroundColor: hasMovingPiece
+      ? "grey"
+      : player === GamePlayer.green
+      ? "green"
+      : "red",
   };
 };
 
@@ -627,7 +740,7 @@ export const GameHeaderDataTestID = (dataTestID: string) => {
 export const GameHeader = (props?: GameHeaderProps) => {
   const game = useGameContext();
   const { header } = useGameDataTestID(props?.dataTestID ?? "GAME_HEADER");
-  const { pieces, hasWinner, player, playerTurnLabel } = game;
+  const { pieces, hasWinner, player, playerTurnLabel, hasMovingPiece } = game;
   const style = useMemo<React.CSSProperties>(
     () => ({ ...GameHeaderStyle, ...props?.style }),
     [props?.style]
@@ -636,8 +749,9 @@ export const GameHeader = (props?: GameHeaderProps) => {
     <div data-testid={header.dataTestID} style={style}>
       <button
         data-testid={header.playerTurn}
-        style={GameHeaderPlayerStyle(player)}
+        style={GameHeaderPlayerTurnStyle(player, hasMovingPiece)}
         onClick={() => gameTogglePlayer(game)}
+        disabled={hasMovingPiece}
       >
         {playerTurnLabel}
       </button>
@@ -674,6 +788,7 @@ export const GameDataTestID = (dataTestID: string) => {
     cells: `${dataTestID}_CELLS`,
     pieces: `${dataTestID}_PIECES`,
     config: `${dataTestID}_CONFIG`,
+    movingPiece: `${dataTestID}_MOVING_PIECE`,
   };
 };
 
@@ -690,6 +805,7 @@ export const Game = (props?: GameProps): JSX.Element => {
         <GameHeader dataTestID={game.header} />
         <GameCells dataTestID={game.cells} />
         <GamePieces dataTestID={game.pieces} />
+        <GameMovingPiece dataTestID={game.movingPiece} />
         <GameConfig dataTestID={game.config} />
       </GameBoard>
     </div>

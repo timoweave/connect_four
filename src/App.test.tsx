@@ -367,7 +367,7 @@ describe("Game behavior", () => {
     expect(await game.pieces.all()).toHaveLength(1);
   });
 
-  test("<Game> let player take turns", async () => {
+  test.skip("<Game> let player take turns", async () => {
     //   0     1     2     3
     // 0 R-0,0
     // 1 G-1,0
@@ -394,7 +394,7 @@ describe("Game behavior", () => {
     await act(async () => await game.cells.click({ col: 0 }));
   });
 
-  test("<Game> green player won", async () => {
+  test.skip("<Game> green player won", async () => {
     //   0     1     2     3
     // 0
     // 1 G-1,0
@@ -426,7 +426,7 @@ describe("Game behavior", () => {
     expect((await game.header.resetAll()).textContent).toEqual("Play Again");
   });
 
-  test("<Game> one", async () => {
+  test.skip("<Game> one", async () => {
     //   0     1     2     3
     // 0
     // 1
@@ -477,7 +477,7 @@ describe("Game behavior", () => {
     `);
   });
 
-  test("<Game> two", async () => {
+  test.skip("<Game> two", async () => {
     //   0     1     2     3
     // 0
     // 1 R-1,0

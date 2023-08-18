@@ -210,7 +210,47 @@ describe("Game config board", () => {
     expect(await game.pieces.all()).toHaveLength(0);
   });
 
+  test("<Game> 3x4 board", async () => {
+    const init: Partial<UseGameType> = { column: 3, row: 4, count: 5 };
+    const rendered = render(<Game dataTestID="GAME" />, {
+      wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
+    });
+
+    const game = gameElement(rendered, "GAME");
+
+    expect((await game.config.column()).getAttribute("value")).toEqual("3");
+    expect((await game.config.row()).getAttribute("value")).toEqual("4");
+    expect((await game.config.count()).getAttribute("value")).toEqual("5");
+
+    expect(await game.cells.all()).toHaveLength(3 * 4);
+  });
+
+  test("<Game> 1x2 -> 5x8 board", async () => {
+    const init: Partial<UseGameType> = { column: 1, row: 2, count: 1 };
+    const rendered = render(<Game dataTestID="GAME" />, {
+      wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
+    });
+
+    const game = gameElement(rendered, "GAME");
+
+    expect((await game.config.column()).getAttribute("value")).toEqual("1");
+    expect((await game.config.row()).getAttribute("value")).toEqual("2");
+    expect((await game.config.count()).getAttribute("value")).toEqual("1");
+    expect(await game.cells.all()).toHaveLength(1 * 2);
+
+    fireEvent.change(await game.config.column(), { target: { value: "5" } });
+    fireEvent.change(await game.config.row(), { target: { value: "8" } });
+    fireEvent.change(await game.config.count(), { target: { value: "10" } });
+
+    expect((await game.config.column()).getAttribute("value")).toEqual("5");
+    expect((await game.config.row()).getAttribute("value")).toEqual("8");
+    expect((await game.config.count()).getAttribute("value")).toEqual("10");
+
+    expect(await game.cells.all()).toHaveLength(5 * 8);
+  });
+
   test.skip("<Game> open config dialog", async () => {
+    // TBD: wait for jsdom to add <dialog> support
     const init: Partial<UseGameType> = { column: 1, row: 1, count: 1 };
     const rendered = render(<Game dataTestID="GAME" />, {
       wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
@@ -234,6 +274,7 @@ describe("Game config board", () => {
   });
 
   test.skip("<Game> change board from 4x4 to 5x5", async () => {
+    // TBD: wait for jsdom to add <dialog> support
     const init: Partial<UseGameType> = { column: 4, row: 4 };
     const rendered = render(<Game dataTestID="GAME" />, {
       wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
@@ -253,6 +294,7 @@ describe("Game config board", () => {
   });
 
   test.skip("<Game> change board from 2x2 to 10x10", async () => {
+    // TBD: wait for jsdom to add <dialog> support
     const init: Partial<UseGameType> = { column: 2, row: 2 };
     const rendered = render(<Game dataTestID="GAME" />, {
       wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),

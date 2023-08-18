@@ -26,3 +26,7 @@
 
 1. example of green use reach 4 count first
 ![layout](doc/game-green-won.png)
+
+# Update
+1. new layout and allow player to click the column instead of buttons.
+![layout](doc/game-new-layout.png)

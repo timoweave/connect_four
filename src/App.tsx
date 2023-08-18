@@ -56,8 +56,8 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
   const [error, setError] = useState<Error | null>(props?.error ?? null);
   const [count, setCount] = useState<number>(props?.count ?? 4);
   const [size, setSize] = useState<number>(props?.size ?? 4);
-  const [column, setColumn] = useState<number>(props?.column ?? 8);
-  const [row, setRow] = useState<number>(props?.row ?? 8);
+  const [column, setColumn] = useState<number>(props?.column ?? 5);
+  const [row, setRow] = useState<number>(props?.row ?? 5);
   const [winner, setWinner] = useState<GamePlayer | null>(
     props?.winner ?? null
   );
@@ -105,7 +105,7 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
 
   const playerTurnLabel = useMemo(() => {
     const prefix = player === GamePlayer.green ? "Green" : "Red";
-    const suffix = hasWinner === true ? "Winner" : "Turn";
+    const suffix = hasWinner === true ? "Won" : "Turn";
     return `${prefix} ${suffix}`;
   }, [player, hasWinner]);
 

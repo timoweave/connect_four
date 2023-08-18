@@ -349,19 +349,12 @@ export const gameAddPiece = (props: {
 
 export const gameOpenConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
-  console.log({ hello: 1 });
-  const showModal = dialogRef?.current?.showModal;
-  if (showModal != null) {
-    showModal();
-  }
+  dialogRef.current?.showModal();
 };
 
 export const gameCloseConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
-  const close = dialogRef.current?.close;
-  if (close != null) {
-    close();
-  }
+  dialogRef.current?.close();
 };
 
 export const gameReset = (game: UseGameType) => {
@@ -652,7 +645,7 @@ export const GameHeader = (props?: GameHeaderProps) => {
         data-testid={header.configGame}
         style={{ width: "100%" }}
         onClick={() => gameOpenConfigDialog(game)}
-        disabled={pieces.length !== 0 || true /*TBD */}
+        disabled={pieces.length !== 0}
       >
         Config Game
       </button>

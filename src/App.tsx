@@ -349,16 +349,17 @@ export const gameAddPiece = (props: {
 
 export const gameOpenConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
-  const show = dialogRef.current?.show;
-  if (show) {
-    show();
+  console.log({ hello: 1 });
+  const showModal = dialogRef?.current?.showModal;
+  if (showModal != null) {
+    showModal();
   }
 };
 
 export const gameCloseConfigDialog = (game: UseGameType) => {
   const { dialogRef } = game;
   const close = dialogRef.current?.close;
-  if (close) {
+  if (close != null) {
     close();
   }
 };

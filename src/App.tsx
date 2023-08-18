@@ -63,6 +63,7 @@ export interface UseGameType {
   scoreDialogRef: React.RefObject<HTMLDialogElement>;
   intervalTime: number;
   setIntervalTime: React.Dispatch<React.SetStateAction<number>>;
+  maxCount: number;
 }
 
 export const useGame = (props?: Partial<UseGameType>): UseGameType => {
@@ -121,7 +122,7 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
   );
 
   const width = useMemo<number>(
-    () => (column + 2) /* gap */ * size,
+    () => (column + 2) /* gap = 2 */ * size,
     [column, size],
   );
 
@@ -132,6 +133,10 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
   }, [player, hasWinner]);
 
   const hasMovingPiece = useMemo(() => movingPiece != null, [movingPiece]);
+  const maxCount = useMemo(
+    () => Math.floor(Math.sqrt(Math.pow(row, 2) + Math.pow(column, 2))),
+    [row, column],
+  );
 
   return {
     error,
@@ -166,6 +171,7 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     scoreDialogRef,
     intervalTime,
     setIntervalTime,
+    maxCount,
   };
 };
 
@@ -204,6 +210,7 @@ const USE_GAME_DEFAULT: UseGameType = {
   scoreDialogRef: { current: null },
   intervalTime: 1000,
   setIntervalTime: emptyFunction,
+  maxCount: 0,
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -220,6 +227,7 @@ const useGameDataTestID = (dataTestID: string) => {
     () => GameMovingPieceDataTestID(dataTestID),
     [dataTestID],
   );
+  const score = useMemo(() => GameScoreDataTestID(dataTestID), [dataTestID]);
 
   return {
     root: dataTestID,
@@ -229,6 +237,7 @@ const useGameDataTestID = (dataTestID: string) => {
     cells,
     pieces,
     movingPiece,
+    score,
   };
 };
 
@@ -467,13 +476,13 @@ const GameCellStyle = (props: {
 
 const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
   const { columns, rows, width } = game;
-  /* grid templae area:
-     game_header    game_header    game_header    ... game_header
-     game_cell_0_0  game_cell_0_1  game_cell_0_2  ... game_cell_0_C
-     game_cell_1_0  game_cell_1_1  game_cell_1_2  ... game_cell_1_C
-     game_cell_2_0  game_cell_2_1  game_cell_2_2  ... game_cell_2_C
-     ...
-     game_cell_R_0  game_cell_R_1  game_cell_R_2  ... game_cell_R_C
+  /* grid-template-area: // where C = columns.length - 1, R = rows.length - 1
+       game_header    game_header    game_header    ... game_header
+       game_cell_0_0  game_cell_0_1  game_cell_0_2  ... game_cell_0_C
+       game_cell_1_0  game_cell_1_1  game_cell_1_2  ... game_cell_1_C
+       game_cell_2_0  game_cell_2_1  game_cell_2_2  ... game_cell_2_C
+       ...
+       game_cell_R_0  game_cell_R_1  game_cell_R_2  ... game_cell_R_C
   */
 
   const gridTemplateAreas = [
@@ -691,6 +700,7 @@ export const GameConfig = (props?: GameConfigProps) => {
     intervalTime,
     setIntervalTime,
     setPlayer,
+    maxCount,
   } = game;
   const style = useMemo<React.CSSProperties>(
     () => ({ ...GameConfigDialogStyle, ...props?.style }),
@@ -731,14 +741,18 @@ export const GameConfig = (props?: GameConfigProps) => {
           data-testid={config.countLabel}
           style={{ gridArea: "config_count_label" }}
         >
-          Wining Count
+          Winning Count
         </label>
         <input
           data-testid={config.count}
           style={{ gridArea: "config_count" }}
           type="number"
           value={count}
-          onChange={(e) => setCount(parseInt(e.target.value, 10))}
+          min={1}
+          max={maxCount}
+          onChange={(e) =>
+            setCount(Math.min(parseInt(e.target.value ?? "1", 10), maxCount))
+          }
         />
         <label
           data-testid={"config_interval_time_label"}
@@ -751,6 +765,7 @@ export const GameConfig = (props?: GameConfigProps) => {
           style={{ gridArea: "config_interval_time" }}
           type="number"
           value={intervalTime}
+          min={1}
           onChange={(e) => setIntervalTime(parseInt(e.target.value, 10))}
         />
 
@@ -813,8 +828,19 @@ export const GameScoreDialogStyle = (
   };
 };
 
-export const GameScore = () => {
+export const GameScoreDataTestID = (dataTestID: string) => {
+  return {
+    root: dataTestID,
+    winner: `${dataTestID}_WINNER`,
+    close: `${dataTestID}_CLOSE`,
+  };
+};
+
+export interface GameScoreProps extends GameProps {}
+
+export const GameScore = (props?: GameScoreProps) => {
   const game = useGameContext();
+  const { score } = useGameDataTestID(props?.dataTestID ?? "GAME_SCORE");
   const { hasWinner, scoreDialogRef, playerTurnLabel, intervalTime, player } =
     game;
 
@@ -833,10 +859,12 @@ export const GameScore = () => {
     <dialog
       ref={scoreDialogRef}
       style={{ border: "none", borderRadius: "0.5rem" }}
+      data-testid={score.root}
     >
       <div style={GameScoreDialogStyle(game)}>
-        <h3>{playerTurnLabel}</h3>
+        <h3 data-testid={score.winner}>{playerTurnLabel}</h3>
         <button
+          data-testid={score.close}
           onClick={() => gameCloseScoreDialog(game)}
           style={{
             color: "white",
@@ -920,7 +948,6 @@ export const GameHeader = (props?: GameHeaderProps) => {
       <button
         data-testid={header.playerTurn}
         style={GameHeaderPlayerTurnStyle(game)}
-        // onClick={() => gameTogglePlayer(game)}
         disabled={hasMovingPiece}
       >
         {playerTurnLabel}
@@ -952,6 +979,7 @@ export const GameDataTestID = (dataTestID: string) => {
     pieces: `${dataTestID}_PIECES`,
     config: `${dataTestID}_CONFIG`,
     movingPiece: `${dataTestID}_MOVING_PIECE`,
+    score: `${dataTestID}_SCORE`,
   };
 };
 
@@ -959,7 +987,7 @@ export const Game = (props?: GameProps): JSX.Element => {
   const { game } = useGameDataTestID(props?.dataTestID ?? "GAME");
   const style = useMemo<React.CSSProperties>(
     () => ({ ...GameStyle, ...props?.style }),
-    [props?.style]
+    [props?.style],
   );
 
   return (
@@ -970,7 +998,7 @@ export const Game = (props?: GameProps): JSX.Element => {
         <GamePieces dataTestID={game.pieces} />
         <GameMovingPiece dataTestID={game.movingPiece} />
         <GameConfig dataTestID={game.config} />
-        <GameScore />
+        <GameScore dataTestID={game.score} />
       </GameBoard>
     </div>
   );

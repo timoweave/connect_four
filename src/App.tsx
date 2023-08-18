@@ -652,7 +652,7 @@ export const GameHeader = (props?: GameHeaderProps) => {
         data-testid={header.configGame}
         style={{ width: "100%" }}
         onClick={() => gameOpenConfigDialog(game)}
-        disabled={pieces.length !== 0}
+        disabled={pieces.length !== 0 || true /*TBD */}
       >
         Config Game
       </button>

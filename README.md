@@ -29,4 +29,16 @@
 
 # Update
 1. new layout and allow player to click the column instead of buttons.
+![layout](doc/game-new-layout-blank.png)
+
+1. new layout of an example where red player won the game.
 ![layout](doc/game-new-layout.png)
+
+1. add config dialog to change the game board dimension and required count.
+![layout](doc/game-config.png)
+
+1. open dialog to change the board dimension to 6x6.
+![layout](doc/game-config-6x6-dialog.png)
+
+1. the game board is arranged for 6x6 board.
+![layout](doc/game-layout-6x6-blank.png)

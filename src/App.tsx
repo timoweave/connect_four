@@ -52,7 +52,7 @@ export interface UseGameType {
   pieces: GamePiece[];
   setPieces: React.Dispatch<React.SetStateAction<GamePiece[]>>;
   pieceLocation: React.MutableRefObject<Map<string, GamePlayer>>;
-  dialogRef: React.RefObject<HTMLDialogElement>;
+  configDialogRef: React.RefObject<HTMLDialogElement>;
   isPlayerToggleable: boolean;
   setIsPlayerToggleable: React.Dispatch<React.SetStateAction<boolean>>;
   width: number;
@@ -60,6 +60,9 @@ export interface UseGameType {
   movingPiece: GamePiece | null;
   setMovingPiece: React.Dispatch<React.SetStateAction<GamePiece | null>>;
   hasMovingPiece: boolean;
+  scoreDialogRef: React.RefObject<HTMLDialogElement>;
+  intervalTime: number;
+  setIntervalTime: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export const useGame = (props?: Partial<UseGameType>): UseGameType => {
@@ -68,14 +71,17 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
   const [size, setSize] = useState<number>(props?.size ?? 4);
   const [column, setColumn] = useState<number>(props?.column ?? 5);
   const [row, setRow] = useState<number>(props?.row ?? 5);
+  const [intervalTime, setIntervalTime] = useState<number>(
+    props?.intervalTime ?? 100,
+  );
   const [winner, setWinner] = useState<GamePlayer | null>(
-    props?.winner ?? null
+    props?.winner ?? null,
   );
   const [player, setPlayer] = useState<GamePlayer>(
-    props?.player ?? GamePlayer.green
+    props?.player ?? GamePlayer.green,
   );
   const [isPlayerToggleable, setIsPlayerToggleable] = useState<boolean>(
-    props?.isPlayerToggleable ?? true
+    props?.isPlayerToggleable ?? true,
   );
   const [pieces, setPieces] = useState<GamePiece[]>(props?.pieces ?? []);
   const pieceLocation = useRef<Map<string, GamePlayer>>(
@@ -84,36 +90,39 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
         pieces.map((piece) => [
           `${piece.row}_${piece.col}`,
           gameGetGamePlayer(piece.color),
-        ])
-      )
+        ]),
+      ),
   );
-  const dialogRef = useRef<HTMLDialogElement>(
-    props?.dialogRef?.current ?? null
+  const configDialogRef = useRef<HTMLDialogElement>(
+    props?.configDialogRef?.current ?? null,
+  );
+  const scoreDialogRef = useRef<HTMLDialogElement>(
+    props?.scoreDialogRef?.current ?? null,
   );
   const [movingPiece, setMovingPiece] = useState<GamePiece | null>(
-    props?.movingPiece ?? null
+    props?.movingPiece ?? null,
   );
 
   const hasWinner = useMemo<boolean>(() => winner != null, [winner]);
 
   const counts = useMemo<number[]>(
     () => Array.from({ length: count }, (_, i) => i),
-    [count]
+    [count],
   );
 
   const columns = useMemo<number[]>(
     () => Array.from({ length: column }, (_, i) => i),
-    [column]
+    [column],
   );
 
   const rows = useMemo<number[]>(
     () => Array.from({ length: row }, (_, i) => i),
-    [row]
+    [row],
   );
 
   const width = useMemo<number>(
     () => (column + 2) /* gap */ * size,
-    [column, size]
+    [column, size],
   );
 
   const playerTurnLabel = useMemo(() => {
@@ -146,7 +155,7 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     pieces,
     setPieces,
     pieceLocation,
-    dialogRef,
+    configDialogRef,
     isPlayerToggleable,
     setIsPlayerToggleable,
     width,
@@ -154,6 +163,9 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     movingPiece,
     setMovingPiece,
     hasMovingPiece,
+    scoreDialogRef,
+    intervalTime,
+    setIntervalTime,
   };
 };
 
@@ -181,7 +193,7 @@ const USE_GAME_DEFAULT: UseGameType = {
   pieces: [],
   setPieces: emptyFunction,
   pieceLocation: { current: new Map<string, GamePlayer>() },
-  dialogRef: { current: null },
+  configDialogRef: { current: null },
   isPlayerToggleable: true,
   setIsPlayerToggleable: emptyFunction,
   width: 0,
@@ -189,6 +201,9 @@ const USE_GAME_DEFAULT: UseGameType = {
   movingPiece: null,
   setMovingPiece: emptyFunction,
   hasMovingPiece: false,
+  scoreDialogRef: { current: null },
+  intervalTime: 1000,
+  setIntervalTime: emptyFunction,
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -203,11 +218,11 @@ const useGameDataTestID = (dataTestID: string) => {
   const pieces = useMemo(() => GamePiecesDataTestID(dataTestID), [dataTestID]);
   const movingPiece = useMemo(
     () => GameMovingPieceDataTestID(dataTestID),
-    [dataTestID]
+    [dataTestID],
   );
 
   return {
-    dataTestID,
+    root: dataTestID,
     game,
     header,
     config,
@@ -244,7 +259,7 @@ export const gameIsFullColumn = (game: UseGameType, col: number): boolean => {
 
 export const gameFindNextRow = (
   game: UseGameType,
-  col: number
+  col: number,
 ): number | null => {
   const { row, pieces, setError } = game;
 
@@ -302,8 +317,8 @@ export const gameHasWiningPiecesInThisDirection = (props: {
         }
         return { ...ans, sum: ans.sum + 1 };
       },
-      init
-    )
+      init,
+    ),
   );
 
   const total = forwardPieceCount.sum + backwardPieceCount.sum;
@@ -312,7 +327,7 @@ export const gameHasWiningPiecesInThisDirection = (props: {
 
 export const gameHasWiningPieces = (
   game: UseGameType,
-  piece: GamePiece
+  piece: GamePiece,
 ): boolean => {
   const { pieceLocation, player } = game;
   const { row, col } = piece;
@@ -391,13 +406,23 @@ export const gameAddMovingPiece = (props: {
 };
 
 export const gameOpenConfigDialog = (game: UseGameType) => {
-  const { dialogRef } = game;
-  dialogRef.current?.showModal();
+  const { configDialogRef } = game;
+  configDialogRef.current?.showModal();
 };
 
 export const gameCloseConfigDialog = (game: UseGameType) => {
-  const { dialogRef } = game;
-  dialogRef.current?.close();
+  const { configDialogRef } = game;
+  configDialogRef.current?.close();
+};
+
+export const gameOpenScoreDialog = (game: UseGameType) => {
+  const { scoreDialogRef } = game;
+  scoreDialogRef.current?.showModal();
+};
+
+export const gameCloseScoreDialog = (game: UseGameType) => {
+  const { scoreDialogRef } = game;
+  scoreDialogRef.current?.close();
 };
 
 export const gameReset = (game: UseGameType) => {
@@ -456,7 +481,7 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
     rows
       .map(
         (row) =>
-          `"${columns.map((col) => gameCellGridArea({ col, row })).join(" ")}"`
+          `"${columns.map((col) => gameCellGridArea({ col, row })).join(" ")}"`,
       )
       .join(" "),
   ].join(" ");
@@ -473,7 +498,7 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
 
 export const GameCellsDataTestID = (dataTestID: string) => {
   return {
-    dataTestID,
+    root: dataTestID,
     cell: (props: { row?: number; col: number }) =>
       `${dataTestID}_${props.row ?? 0}_${props.col}`,
   };
@@ -497,7 +522,7 @@ export const GameCells = (props?: GameCellsProps) => {
             style={GameCellStyle({ row, col, color, size, outlined: true })}
             onClick={() => gameAddMovingPiece({ game, col, row })}
           ></div>
-        ))
+        )),
       )}
     </>
   );
@@ -509,7 +534,7 @@ export interface GamePiecesProps extends GameProps {}
 export const GamePieces = (props?: GamePiecesProps) => {
   const game = useGameContext();
   const { pieces: dataTestID } = useGameDataTestID(
-    props?.dataTestID ?? "GAME_PIECE"
+    props?.dataTestID ?? "GAME_PIECE",
   );
   const { pieces, size } = game;
 
@@ -526,13 +551,11 @@ export const GamePieces = (props?: GamePiecesProps) => {
   );
 };
 
-export const useGamePieceMovingRow = (
-  intervalTime: number = 100
-): number | null => {
+export const useGamePieceMovingRow = (): number | null => {
   const game = useGameContext();
-  const { movingPiece, setMovingPiece } = game;
+  const { movingPiece, setMovingPiece, intervalTime } = game;
   const [movingRow, setMovingRow] = useState<number | null>(
-    movingPiece?.row ?? null
+    movingPiece?.row ?? null,
   );
 
   useEffect(() => {
@@ -561,8 +584,7 @@ export const useGamePieceMovingRow = (
 
 export const GameMovingPieceDataTestID = (dataTestID: string) => {
   return {
-    piece: (props: { col: number; color: GameCellColor }) =>
-      `${dataTestID}_MOVING_PIECE_${props.color}_${props.col}`,
+    piece: () => `${dataTestID}_MOVING_PIECE`,
   };
 };
 
@@ -572,7 +594,7 @@ export const GameMovingPiece = (props?: GameMovingPiece) => {
   const { size, movingPiece } = useGameContext();
   const row = useGamePieceMovingRow();
   const dataTestID = useGameDataTestID(
-    props?.dataTestID ?? "GAME_MOVING_PIECE"
+    props?.dataTestID ?? "GAME_MOVING_PIECE",
   );
   const { col, color } = movingPiece ?? {};
 
@@ -582,8 +604,7 @@ export const GameMovingPiece = (props?: GameMovingPiece) => {
 
   return (
     <div
-      data-testid={dataTestID.movingPiece.piece({ col, color })}
-      key={gameCellGridArea({ col, row })}
+      data-testid={dataTestID.movingPiece.piece()}
       style={GameCellStyle({ color, col, row, size })}
     ></div>
   );
@@ -596,7 +617,7 @@ export const GameBoard = (props: GameBoardProps) => {
   const { children } = props;
   const style = useMemo<React.CSSProperties>(
     () => ({ ...GameBoardStyle(game), ...props?.style }),
-    [props?.style, game]
+    [props?.style, game],
   );
 
   return (
@@ -612,7 +633,7 @@ const GameHeaderStyle: React.CSSProperties = {
   gridTemplateColumns: "repeat(3, 1fr)",
   gap: "1rem",
   width: "100%",
-  margin: "2rem 0rem",
+  marginBottom: "1rem",
 };
 
 const GameConfigDialogStyle: React.CSSProperties = {
@@ -624,25 +645,31 @@ const GameConfigStyle: React.CSSProperties = {
   display: "grid",
   gap: "1rem",
   gridTemplateAreas: `
-  "config_header       config_header"
-  "config_column_label config_column"
-  "config_row_label    config_row"
-  "config_count_label  config_count"
-  "empty               config_close"
+  "config_header                config_header"
+  "config_column_label          config_column"
+  "config_row_label             config_row"
+  "config_count_label           config_count"
+  "config_interval_time_label   config_interval_time"
+  "config_player_label          config_player"
+  "config_is_player_toggleable  config_is_player_toggleable_label"
+  "empty                        config_close"
   `,
   margin: "1rem 5rem",
 };
 
 export const GameConfigDataTestID = (dataTestID: string) => {
   return {
-    dataTestID,
+    root: dataTestID,
     columnLabel: `${dataTestID}_COLUMN_LABEL`,
     rowLabel: `${dataTestID}_ROW_LABEL`,
     countLabel: `${dataTestID}_COUNT_LABEL`,
     column: `${dataTestID}_COLUMN`,
     row: `${dataTestID}_ROW`,
     count: `${dataTestID}_COUNT`,
+    intervalTime: `${dataTestID}_INTERVAL_TIME`,
     close: `${dataTestID}_CLOSE`,
+    isPlayerToggleableLabel: `${dataTestID}_IS_PLAYER_TOGGLEABLE_LABEL`,
+    isPlayerToggleable: `${dataTestID}_IS_PLAYER_TOGGLEABLE`,
   };
 };
 
@@ -651,21 +678,34 @@ export interface GameConfigProps extends GameProps {}
 export const GameConfig = (props?: GameConfigProps) => {
   const game = useGameContext();
   const { config } = useGameDataTestID(props?.dataTestID ?? "GAME_CONFIG");
-  const { dialogRef, column, setColumn, row, setRow, count, setCount } = game;
+  const {
+    configDialogRef,
+    column,
+    setColumn,
+    row,
+    setRow,
+    count,
+    setCount,
+    isPlayerToggleable,
+    setIsPlayerToggleable,
+    intervalTime,
+    setIntervalTime,
+    setPlayer,
+  } = game;
   const style = useMemo<React.CSSProperties>(
     () => ({ ...GameConfigDialogStyle, ...props?.style }),
-    [props?.style]
+    [props?.style],
   );
 
   return (
-    <dialog data-testid={config.dataTestID} ref={dialogRef} style={style}>
+    <dialog data-testid={config.root} ref={configDialogRef} style={style}>
       <div style={GameConfigStyle}>
         <h3 style={{ gridArea: "config_header" }}>Game Configuration</h3>
         <label
           data-testid={config.columnLabel}
           style={{ gridArea: "config_column_label" }}
         >
-          Column
+          Max Column
         </label>
         <input
           data-testid={config.column}
@@ -678,7 +718,7 @@ export const GameConfig = (props?: GameConfigProps) => {
           data-testid={config.rowLabel}
           style={{ gridArea: "config_row_label" }}
         >
-          Row
+          Max Row
         </label>
         <input
           data-testid={config.row}
@@ -691,7 +731,7 @@ export const GameConfig = (props?: GameConfigProps) => {
           data-testid={config.countLabel}
           style={{ gridArea: "config_count_label" }}
         >
-          Count
+          Wining Count
         </label>
         <input
           data-testid={config.count}
@@ -700,6 +740,54 @@ export const GameConfig = (props?: GameConfigProps) => {
           value={count}
           onChange={(e) => setCount(parseInt(e.target.value, 10))}
         />
+        <label
+          data-testid={"config_interval_time_label"}
+          style={{ gridArea: "config_interval_time_label" }}
+        >
+          Interval Time
+        </label>
+        <input
+          data-testid={"config_interval_time"}
+          style={{ gridArea: "config_interval_time" }}
+          type="number"
+          value={intervalTime}
+          onChange={(e) => setIntervalTime(parseInt(e.target.value, 10))}
+        />
+
+        <label
+          data-testid={"config_player_label"}
+          style={{ gridArea: "config_player_label" }}
+        >
+          First Player
+        </label>
+        <select
+          data-testid={"config_player"}
+          style={{ gridArea: "config_player" }}
+          onChange={(e) => {
+            setPlayer(e.currentTarget.value as GamePlayer);
+          }}
+        >
+          <option value={GamePlayer.green}>Green</option>
+          <option value={GamePlayer.red}>Red</option>
+        </select>
+
+        <input
+          data-testid={config.isPlayerToggleableLabel}
+          style={{ gridArea: "config_is_player_toggleable" }}
+          type="checkbox"
+          id={config.isPlayerToggleable}
+          name={config.isPlayerToggleable}
+          checked={isPlayerToggleable}
+          onChange={() => {
+            setIsPlayerToggleable((enabled) => !enabled);
+          }}
+        />
+        <label
+          data-testid={config.isPlayerToggleableLabel}
+          htmlFor={config.isPlayerToggleable}
+        >
+          Green and Red Players Take Turn
+        </label>
         <button
           data-testid={config.close}
           style={{ gridArea: "config_close" }}
@@ -712,25 +800,98 @@ export const GameConfig = (props?: GameConfigProps) => {
   );
 };
 
-export const GameHeaderPlayerTurnStyle = (
-  player: GamePlayer,
-  hasMovingPiece: boolean
+export const GameScoreDialogStyle = (
+  game: UseGameType,
 ): React.CSSProperties => {
+  const { hasWinner } = game;
+
   return {
-    width: "100%",
-    backgroundColor: hasMovingPiece
-      ? "grey"
-      : player === GamePlayer.green
-      ? "green"
-      : "red",
+    display: hasWinner ? "grid" : "none",
+    placeItems: "center",
+    minWidth: "10rem",
+    minHeight: "120px",
   };
+};
+
+export const GameScore = () => {
+  const game = useGameContext();
+  const { hasWinner, scoreDialogRef, playerTurnLabel, intervalTime, player } =
+    game;
+
+  useEffect(() => {
+    setTimeout(() => {
+      if (!hasWinner) {
+        return;
+      }
+
+      gameOpenScoreDialog(game);
+    }, 2 * intervalTime);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasWinner, intervalTime]);
+
+  return (
+    <dialog
+      ref={scoreDialogRef}
+      style={{ border: "none", borderRadius: "0.5rem" }}
+    >
+      <div style={GameScoreDialogStyle(game)}>
+        <h3>{playerTurnLabel}</h3>
+        <button
+          onClick={() => gameCloseScoreDialog(game)}
+          style={{
+            color: "white",
+            backgroundColor: gameGetCellColor(player),
+            border: "none",
+          }}
+        >
+          Close
+        </button>
+      </div>
+    </dialog>
+  );
+};
+
+export const GameHeaderPlayerTurnStyle = (
+  game: UseGameType,
+): React.CSSProperties => {
+  const { player, hasMovingPiece } = game;
+  const style = { width: "100%" };
+
+  if (hasMovingPiece) {
+    return {
+      ...style,
+      color: "lightgrey",
+    };
+  }
+
+  return {
+    ...style,
+    color: gameGetCellColor(player),
+  };
+};
+
+export const GameHeaderResetAllStyle = (
+  game: UseGameType,
+): React.CSSProperties => {
+  const { hasWinner, player } = game;
+  const style = { width: "100%" };
+
+  if (hasWinner) {
+    return {
+      ...style,
+      color: "white",
+      backgroundColor: gameGetCellColor(player),
+    };
+  }
+
+  return style;
 };
 
 export interface GameHeaderProps extends GameProps {}
 
 export const GameHeaderDataTestID = (dataTestID: string) => {
   return {
-    dataTestID,
+    root: dataTestID,
     playerTurn: `${dataTestID}_PLAYER_TURN`,
     configGame: `${dataTestID}_CONFIG_GAME`,
     resetAll: `${dataTestID}_RESET_ALL`,
@@ -740,21 +901,14 @@ export const GameHeaderDataTestID = (dataTestID: string) => {
 export const GameHeader = (props?: GameHeaderProps) => {
   const game = useGameContext();
   const { header } = useGameDataTestID(props?.dataTestID ?? "GAME_HEADER");
-  const { pieces, hasWinner, player, playerTurnLabel, hasMovingPiece } = game;
+  const { pieces, hasWinner, playerTurnLabel, hasMovingPiece } = game;
   const style = useMemo<React.CSSProperties>(
     () => ({ ...GameHeaderStyle, ...props?.style }),
-    [props?.style]
+    [props?.style],
   );
+
   return (
-    <div data-testid={header.dataTestID} style={style}>
-      <button
-        data-testid={header.playerTurn}
-        style={GameHeaderPlayerTurnStyle(player, hasMovingPiece)}
-        onClick={() => gameTogglePlayer(game)}
-        disabled={hasMovingPiece}
-      >
-        {playerTurnLabel}
-      </button>
+    <div data-testid={header.root} style={style}>
       <button
         data-testid={header.configGame}
         style={{ width: "100%" }}
@@ -764,8 +918,16 @@ export const GameHeader = (props?: GameHeaderProps) => {
         Config Game
       </button>
       <button
+        data-testid={header.playerTurn}
+        style={GameHeaderPlayerTurnStyle(game)}
+        // onClick={() => gameTogglePlayer(game)}
+        disabled={hasMovingPiece}
+      >
+        {playerTurnLabel}
+      </button>
+      <button
         data-testid={header.resetAll}
-        style={{ width: "100%" }}
+        style={GameHeaderResetAllStyle(game)}
         onClick={() => gameReset(game)}
         disabled={pieces.length === 0}
       >
@@ -778,11 +940,12 @@ export const GameHeader = (props?: GameHeaderProps) => {
 export const GameStyle: React.CSSProperties = {
   display: "grid",
   placeItems: "center",
+  height: "100vh",
 };
 
 export const GameDataTestID = (dataTestID: string) => {
   return {
-    dataTestID,
+    root: dataTestID,
     board: `${dataTestID}_BOARD`,
     header: `${dataTestID}_HEADER`,
     cells: `${dataTestID}_CELLS`,
@@ -800,13 +963,14 @@ export const Game = (props?: GameProps): JSX.Element => {
   );
 
   return (
-    <div data-testid={game.dataTestID} style={style}>
+    <div data-testid={game.root} style={style}>
       <GameBoard dataTestID={game.board}>
         <GameHeader dataTestID={game.header} />
         <GameCells dataTestID={game.cells} />
         <GamePieces dataTestID={game.pieces} />
         <GameMovingPiece dataTestID={game.movingPiece} />
         <GameConfig dataTestID={game.config} />
+        <GameScore />
       </GameBoard>
     </div>
   );

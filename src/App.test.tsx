@@ -1,4 +1,4 @@
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, vi } from "vitest";
 import { RenderResult, act, render, fireEvent } from "@testing-library/react";
 import {
   Game,
@@ -9,6 +9,7 @@ import {
   GameConfigDataTestID,
   GameHeader,
   GameHeaderDataTestID,
+  GameMovingPieceDataTestID,
   GamePieces,
   GameProviderWithGameBoard,
   UseGameType,
@@ -26,8 +27,7 @@ const gameHeaderElement = (rendered: RenderedType, dataTestID: string) => {
   const { findByTestId } = rendered;
   const testID = GameHeaderDataTestID(dataTestID);
 
-  const dataTestIDElement = async (): Promise<HTMLElement> =>
-    findByTestId(testID.dataTestID);
+  const root = async (): Promise<HTMLElement> => findByTestId(testID.root);
   const playerTurn = async (): Promise<HTMLButtonElement> =>
     findByTestId(testID.playerTurn) as Promise<HTMLButtonElement>;
   const configGame = async (): Promise<HTMLButtonElement> =>
@@ -36,7 +36,7 @@ const gameHeaderElement = (rendered: RenderedType, dataTestID: string) => {
     findByTestId(testID.resetAll) as Promise<HTMLButtonElement>;
 
   return {
-    dataTestID: dataTestIDElement,
+    root,
     playerTurn,
     configGame,
     resetAll,
@@ -47,8 +47,7 @@ const gameConfigElement = (rendered: RenderedType, dataTestID: string) => {
   const { findByTestId } = rendered;
   const testID = GameConfigDataTestID(dataTestID);
 
-  const root = async (): Promise<HTMLElement> =>
-    findByTestId(testID.dataTestID);
+  const root = async (): Promise<HTMLElement> => findByTestId(testID.root);
   const column = async (): Promise<HTMLInputElement> =>
     findByTestId(testID.column) as Promise<HTMLInputElement>;
   const row = async (): Promise<HTMLInputElement> =>
@@ -108,27 +107,42 @@ const gamePiecesElement = (rendered: RenderedType, dataTestID: string) => {
   };
 };
 
+const gameMovingPieceElement = (rendered: RenderedType, dataTestID: string) => {
+  const { queryByTestId } = rendered;
+  const testID = GameMovingPieceDataTestID(dataTestID);
+
+  const piece = (): HTMLDivElement | null =>
+    queryByTestId(testID.piece()) as HTMLDivElement | null;
+
+  return {
+    piece,
+  };
+};
+
 const gameElement = (rendered: RenderedType, dataTestID: string) => {
   const { findAllByTestId } = rendered;
 
+  const root = dataTestID;
   const board = async (): Promise<HTMLElement[]> =>
-    findAllByTestId(`${dataTestID}_BOARD`);
-  const header = gameHeaderElement(rendered, `${dataTestID}_HEADER`);
-  const config = gameConfigElement(rendered, `${dataTestID}_CONFIG`);
-  const cells = gameCellsElement(rendered, `${dataTestID}_CELLS`);
-  const pieces = gamePiecesElement(rendered, `${dataTestID}_PIECES`);
+    findAllByTestId(`${root}_BOARD`);
+  const header = gameHeaderElement(rendered, `${root}_HEADER`);
+  const config = gameConfigElement(rendered, `${root}_CONFIG`);
+  const cells = gameCellsElement(rendered, `${root}_CELLS`);
+  const pieces = gamePiecesElement(rendered, `${root}_PIECES`);
+  const movingPiece = gameMovingPieceElement(rendered, `${root}_MOVING_PIECE`);
 
   return {
-    dataTestID,
+    root,
     board,
     header,
     config,
     cells,
     pieces,
+    movingPiece,
   };
 };
 
-describe("check data-testid", () => {
+describe("Game data-testid", () => {
   test("<GameHeader>", async () => {
     const init: Partial<UseGameType> = { column: 2, row: 2 };
     const rendered = render(<GameHeader dataTestID="GAME_HEADER" />, {
@@ -137,7 +151,7 @@ describe("check data-testid", () => {
 
     const gameHeader = gameHeaderElement(rendered, "GAME_HEADER");
 
-    expect(await gameHeader.dataTestID()).toBeDefined();
+    expect(await gameHeader.root()).toBeDefined();
     expect(await gameHeader.playerTurn()).toBeDefined();
     expect(await gameHeader.configGame()).toBeDefined();
     expect(await gameHeader.resetAll()).toBeDefined();
@@ -249,8 +263,7 @@ describe("Game config board", () => {
     expect(await game.cells.all()).toHaveLength(5 * 8);
   });
 
-  test.skip("<Game> open config dialog", async () => {
-    // TBD: wait for jsdom to add <dialog> support
+  test.skip("<Game> open config dialog (TBD: need jsdom support)", async () => {
     const init: Partial<UseGameType> = { column: 1, row: 1, count: 1 };
     const rendered = render(<Game dataTestID="GAME" />, {
       wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
@@ -273,8 +286,7 @@ describe("Game config board", () => {
     // expect(await game.config.close()).not.toBeDefined();
   });
 
-  test.skip("<Game> change board from 4x4 to 5x5", async () => {
-    // TBD: wait for jsdom to add <dialog> support
+  test.skip("<Game> change board from 4x4 to 5x5 (TBD: need jsdom support)", async () => {
     const init: Partial<UseGameType> = { column: 4, row: 4 };
     const rendered = render(<Game dataTestID="GAME" />, {
       wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
@@ -293,8 +305,7 @@ describe("Game config board", () => {
     expect(await game.cells.all()).toHaveLength(5 * 5);
   });
 
-  test.skip("<Game> change board from 2x2 to 10x10", async () => {
-    // TBD: wait for jsdom to add <dialog> support
+  test.skip("<Game> change board from 2x2 to 10x10 (TBD: need jsdom support)", async () => {
     const init: Partial<UseGameType> = { column: 2, row: 2 };
     const rendered = render(<Game dataTestID="GAME" />, {
       wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
@@ -524,5 +535,45 @@ describe("Game behavior", () => {
         />,
       ]
     `);
+  });
+});
+
+describe.only("Game Moving Piece behavior", () => {
+  test("<Game> at the begining, moving piece should not be there", async () => {
+    //   0     1     2     3     4
+    // 0
+    // 1
+    // 2
+    // 3
+    // 4
+    const init: Partial<UseGameType> = { column: 5, row: 5 };
+    const rendered = render(<Game dataTestID="GAME" />, {
+      wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
+    });
+
+    const game = gameElement(rendered, "GAME");
+
+    expect(game.movingPiece.piece()).toBeNull();
+  });
+
+  test.skip("<Game> add 1st moving piece at (1,1) and it will move down to (4,1)", async () => {
+    //   0     1     2     3     4
+    // 0
+    // 1       M-1,1
+    // 2        V
+    // 3        V
+    // 4       G-4,1
+    vi.useFakeTimers();
+    const init: Partial<UseGameType> = { column: 5, row: 5 };
+    const rendered = render(<Game dataTestID="GAME" />, {
+      wrapper: (props) => GameProviderWithGameBoard({ ...props, ...init }),
+    });
+
+    const game = gameElement(rendered, "GAME");
+
+    await act(async () => await game.cells.click({ col: 1 }));
+    await vi.runAllTimers();
+
+    expect(game.movingPiece.piece()).toBeDefined();
   });
 });

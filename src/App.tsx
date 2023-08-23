@@ -9,6 +9,8 @@ import {
   useContext,
   useRef,
 } from "react";
+import { faStar } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
 export enum GamePlayer {
   green = "green",
@@ -59,6 +61,8 @@ export interface UseGameType {
   playerTurnLabel: string;
   movingPiece: GamePiece | null;
   setMovingPiece: React.Dispatch<React.SetStateAction<GamePiece | null>>;
+  winningPieces: GamePiece[];
+  setWinningPieces: React.Dispatch<React.SetStateAction<GamePiece[]>>;
   hasMovingPiece: boolean;
   scoreDialogRef: React.RefObject<HTMLDialogElement>;
   intervalTime: number;
@@ -85,6 +89,9 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     props?.isPlayerToggleable ?? true,
   );
   const [pieces, setPieces] = useState<GamePiece[]>(props?.pieces ?? []);
+  const [winningPieces, setWinningPieces] = useState<GamePiece[]>(
+    props?.winningPieces ?? [],
+  );
   const pieceLocation = useRef<Map<string, GamePlayer>>(
     props?.pieceLocation?.current ??
       new Map<string, GamePlayer>(
@@ -172,6 +179,8 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     intervalTime,
     setIntervalTime,
     maxCount,
+    winningPieces,
+    setWinningPieces,
   };
 };
 
@@ -211,6 +220,8 @@ const USE_GAME_DEFAULT: UseGameType = {
   intervalTime: 1000,
   setIntervalTime: emptyFunction,
   maxCount: 0,
+  winningPieces: [],
+  setWinningPieces: emptyFunction,
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -227,6 +238,10 @@ const useGameDataTestID = (dataTestID: string) => {
     () => GameMovingPieceDataTestID(dataTestID),
     [dataTestID],
   );
+  const winningPiece = useMemo(
+    () => GameWinningPieceDataTestID(dataTestID),
+    [dataTestID],
+  );
   const score = useMemo(() => GameScoreDataTestID(dataTestID), [dataTestID]);
 
   return {
@@ -237,6 +252,7 @@ const useGameDataTestID = (dataTestID: string) => {
     cells,
     pieces,
     movingPiece,
+    winningPiece,
     score,
   };
 };
@@ -291,17 +307,24 @@ export interface GamePlayerPieceCount {
   player: GamePlayer;
   sum: number;
   done: boolean;
+  pieces: GamePiece[];
 }
 
-export const gameHasWiningPiecesInThisDirection = (props: {
+export const gameGetWinningPiecesInThisDirection = (props: {
   game: UseGameType;
+  piece: GamePiece;
   forward: (i: number) => GameCellCoord;
   backward: (i: number) => GameCellCoord;
   direction?: string;
-}): boolean => {
-  const { game, forward, backward } = props;
+}): GamePiece[] | null => {
+  const { game, forward, backward, piece } = props;
   const { pieceLocation, player, count, counts, column, row } = game;
-  const init: GamePlayerPieceCount = { player, sum: 0, done: false };
+  const init: GamePlayerPieceCount = {
+    player,
+    sum: 0,
+    done: false,
+    pieces: [],
+  };
 
   const forwardCoords = counts
     .map(forward)
@@ -309,7 +332,7 @@ export const gameHasWiningPiecesInThisDirection = (props: {
   const backwardCoords = counts
     .map(backward)
     .filter((a) => a.col >= 0 && a.row >= 0 && a.col < column && a.row < row);
-
+  const color = gameGetCellColor(player);
   const [forwardPieceCount, backwardPieceCount] = [
     forwardCoords,
     backwardCoords,
@@ -324,51 +347,76 @@ export const gameHasWiningPiecesInThisDirection = (props: {
         if (pieceLocation.current.get(locationKey) !== player) {
           return { ...ans, done: true };
         }
-        return { ...ans, sum: ans.sum + 1 };
+        const piece: GamePiece = { ...coord, color };
+        return { ...ans, sum: ans.sum + 1, pieces: [...ans.pieces, piece] };
       },
       init,
     ),
   );
 
   const total = forwardPieceCount.sum + backwardPieceCount.sum;
-  return total >= count - 1;
+  const directionPieces: GamePiece[] = [
+    ...forwardPieceCount.pieces,
+    ...backwardPieceCount.pieces,
+    piece,
+  ];
+  if (total >= count - 1) {
+    return directionPieces;
+  } else {
+    return null;
+  }
 };
 
-export const gameHasWiningPieces = (
+export const gameGetWinningPieces = (
   game: UseGameType,
   piece: GamePiece,
-): boolean => {
+): GamePiece[] | null => {
   const { pieceLocation, player } = game;
   const { row, col } = piece;
 
   pieceLocation.current.set(`${row}_${col}`, player);
 
-  return (
-    gameHasWiningPiecesInThisDirection({
-      game,
-      forward: (i) => ({ col: col, row: row - i - 1 }), // up
-      backward: (i) => ({ col: col, row: row + i + 1 }), // down
-      direction: "vertical",
-    }) ||
-    gameHasWiningPiecesInThisDirection({
-      game,
-      forward: (i) => ({ col: col - i - 1, row }), // left
-      backward: (i) => ({ col: col + i + 1, row: row }), // right
-      direction: "horizontal",
-    }) ||
-    gameHasWiningPiecesInThisDirection({
-      game,
-      forward: (i) => ({ col: col - i - 1, row: row + i + 1 }), // down-left
-      backward: (i) => ({ col: col + i + 1, row: row - i - 1 }), // up-right
-      direction: "rise diagonal",
-    }) ||
-    gameHasWiningPiecesInThisDirection({
-      game,
-      forward: (i) => ({ col: col - i - 1, row: row - i - 1 }), // up-left
-      backward: (i) => ({ col: col + i + 1, row: row + i + 1 }), // down-right
-      direction: "fall diagonal",
-    })
-  );
+  const verticalPieces = gameGetWinningPiecesInThisDirection({
+    game,
+    piece,
+    forward: (i) => ({ col: col, row: row - i - 1 }), // up
+    backward: (i) => ({ col: col, row: row + i + 1 }), // down
+    direction: "vertical",
+  });
+  if (verticalPieces != null) {
+    return verticalPieces;
+  }
+  const horizontalPieces = gameGetWinningPiecesInThisDirection({
+    game,
+    piece,
+    forward: (i) => ({ col: col - i - 1, row }), // left
+    backward: (i) => ({ col: col + i + 1, row: row }), // right
+    direction: "horizontal",
+  });
+  if (horizontalPieces != null) {
+    return horizontalPieces;
+  }
+  const riseDiagonalPieces = gameGetWinningPiecesInThisDirection({
+    game,
+    piece,
+    forward: (i) => ({ col: col - i - 1, row: row + i + 1 }), // down-left
+    backward: (i) => ({ col: col + i + 1, row: row - i - 1 }), // up-right
+    direction: "rise diagonal",
+  });
+  if (riseDiagonalPieces != null) {
+    return riseDiagonalPieces;
+  }
+  const fallDiagonalPieces = gameGetWinningPiecesInThisDirection({
+    game,
+    piece,
+    forward: (i) => ({ col: col - i - 1, row: row - i - 1 }), // up-left
+    backward: (i) => ({ col: col + i + 1, row: row + i + 1 }), // down-right
+    direction: "fall diagonal",
+  });
+  if (fallDiagonalPieces != null) {
+    return fallDiagonalPieces;
+  }
+  return null;
 };
 
 export const gameAddPiece = (props: {
@@ -377,7 +425,7 @@ export const gameAddPiece = (props: {
   row?: number;
 }): void => {
   const { game, col } = props;
-  const { hasWinner, player, setPlayer, setPieces, winner, setWinner } = game;
+  const { hasWinner, player, winner } = game;
   if (hasWinner || winner || col >= game.column) {
     return;
   }
@@ -389,12 +437,15 @@ export const gameAddPiece = (props: {
   }
 
   const piece: GamePiece = { color, row, col };
-  const hasWon = gameHasWiningPieces(game, piece);
+  const winningPieces = gameGetWinningPieces(game, piece);
+  const hasWon = winningPieces != null && winningPieces.length > 0;
   const nextPlayer = hasWon ? player : gameTogglePlayer(game);
-
-  setPlayer(nextPlayer);
-  setPieces((p) => [...p, piece]);
-  setWinner(() => (hasWon === false ? null : player));
+  if (hasWon) {
+    game.setWinningPieces(winningPieces);
+  }
+  game.setPlayer(nextPlayer);
+  game.setPieces((p) => [...p, piece]);
+  game.setWinner(() => (hasWon === false ? null : player));
 };
 
 export const gameAddMovingPiece = (props: {
@@ -403,7 +454,7 @@ export const gameAddMovingPiece = (props: {
   row: number;
 }) => {
   const { col, row, game } = props;
-  const { hasWinner, hasMovingPiece, setMovingPiece, player } = game;
+  const { hasWinner, hasMovingPiece, player } = game;
   if (hasMovingPiece || hasWinner) {
     return;
   }
@@ -411,7 +462,7 @@ export const gameAddMovingPiece = (props: {
   const color = gameGetCellColor(player);
   const piece: GamePiece = { color, row, col };
 
-  setMovingPiece(piece);
+  game.setMovingPiece(piece);
 };
 
 export const gameOpenConfigDialog = (game: UseGameType) => {
@@ -435,13 +486,12 @@ export const gameCloseScoreDialog = (game: UseGameType) => {
 };
 
 export const gameReset = (game: UseGameType) => {
-  const { setMovingPiece, setPieces, setPlayer, setWinner, pieceLocation } =
-    game;
-  setPieces([]);
-  setPlayer(GamePlayer.green);
-  setWinner(null);
-  setMovingPiece(null);
-  pieceLocation.current.clear();
+  game.setPieces([]);
+  game.setPlayer(GamePlayer.green);
+  game.setWinner(null);
+  game.setMovingPiece(null);
+  game.setWinningPieces([]);
+  game.pieceLocation.current.clear();
 };
 
 export const gameCellGridArea = (props: {
@@ -619,6 +669,50 @@ export const GameMovingPiece = (props?: GameMovingPiece) => {
   );
 };
 
+export const GameWinningPieceDataTestID = (dataTestID: string) => {
+  return {
+    piece: (props: { row: number; col: number }) =>
+      `${dataTestID}_WINNING_PIECE_${props.row}_${props.col}`,
+  };
+};
+
+export const GameWinningPieceStyle = (props: {
+  row: number;
+  col: number;
+  size: number;
+}): React.CSSProperties => {
+  const { row, col, size } = props;
+  return {
+    gridArea: gameCellGridArea({ col, row }),
+    color: "#ecec00",
+    borderRadius: "50%",
+    width: `${size / 2}rem`,
+    height: `${size / 2}rem`,
+  };
+};
+
+interface GameWinningPiece extends GameProps {}
+export const GameWinningPieces = (props?: GameWinningPiece) => {
+  const dataTestID = useGameDataTestID(
+    props?.dataTestID ?? "GAME_WINNING_PIECE",
+  );
+  const game = useGameContext();
+  const { winningPieces, size } = game;
+
+  return (
+    <>
+      {winningPieces.map(({ row, col }) => (
+        <FontAwesomeIcon
+          data-testid={dataTestID.winningPiece.piece({ row, col })}
+          key={gameCellGridArea({ col, row })}
+          icon={faStar}
+          size="xs"
+          style={GameWinningPieceStyle({ col, row, size })}
+        />
+      ))}
+    </>
+  );
+};
 export interface GameBoardProps extends GameProps, React.PropsWithChildren {}
 
 export const GameBoard = (props: GameBoardProps) => {
@@ -722,7 +816,8 @@ export const GameConfig = (props?: GameConfigProps) => {
           style={{ gridArea: "config_column" }}
           type="number"
           value={column}
-          onChange={(e) => setColumn(parseInt(e.target.value, 10))}
+          min={1}
+          onChange={(e) => setColumn(Math.max(1, parseInt(e.target.value, 10)))}
         />
         <label
           data-testid={config.rowLabel}
@@ -734,8 +829,9 @@ export const GameConfig = (props?: GameConfigProps) => {
           data-testid={config.row}
           style={{ gridArea: "config_row" }}
           type="number"
+          min={1}
           value={row}
-          onChange={(e) => setRow(parseInt(e.target.value, 10))}
+          onChange={(e) => setRow(Math.max(1, parseInt(e.target.value, 10)))}
         />
         <label
           data-testid={config.countLabel}
@@ -751,7 +847,12 @@ export const GameConfig = (props?: GameConfigProps) => {
           min={1}
           max={maxCount}
           onChange={(e) =>
-            setCount(Math.min(parseInt(e.target.value ?? "1", 10), maxCount))
+            setCount(
+              Math.min(
+                maxCount,
+                Math.max(1, parseInt(e.target.value ?? "1", 10)),
+              ),
+            )
           }
         />
         <label
@@ -967,6 +1068,7 @@ export const GameHeader = (props?: GameHeaderProps) => {
 export const GameStyle: React.CSSProperties = {
   display: "grid",
   placeItems: "center",
+  width: "100%",
   height: "100vh",
 };
 
@@ -979,6 +1081,7 @@ export const GameDataTestID = (dataTestID: string) => {
     pieces: `${dataTestID}_PIECES`,
     config: `${dataTestID}_CONFIG`,
     movingPiece: `${dataTestID}_MOVING_PIECE`,
+    winningPieces: `${dataTestID}_WINNING_PIECES`,
     score: `${dataTestID}_SCORE`,
   };
 };
@@ -996,6 +1099,7 @@ export const Game = (props?: GameProps): JSX.Element => {
         <GameHeader dataTestID={game.header} />
         <GameCells dataTestID={game.cells} />
         <GamePieces dataTestID={game.pieces} />
+        <GameWinningPieces dataTestID={game.winningPieces} />
         <GameMovingPiece dataTestID={game.movingPiece} />
         <GameConfig dataTestID={game.config} />
         <GameScore dataTestID={game.score} />

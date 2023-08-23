@@ -684,7 +684,7 @@ export const GameWinningPieceStyle = (props: {
   const { row, col, size } = props;
   return {
     gridArea: gameCellGridArea({ col, row }),
-    color: "#ecec00",
+    color: "white",
     borderRadius: "50%",
     width: `${size / 2}rem`,
     height: `${size / 2}rem`,

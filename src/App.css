@@ -1,0 +1,11 @@
+.green_turn {
+  cursor: url("data:image/svg+xml;utf8,<svg fill='green' width='78' height='78' clip-rule='evenodd' fill-rule='evenodd' stroke-linejoin='round' stroke-miterlimit='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><circle cx='11.998' cy='11.998' fill-rule='nonzero' r='9.998' /></svg>") 39 39, auto;
+}
+
+.red_turn {
+  cursor: url("data:image/svg+xml;utf8,<svg fill='red' width='78' height='78' clip-rule='evenodd' fill-rule='evenodd' stroke-linejoin='round' stroke-miterlimit='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><circle cx='11.998' cy='11.998' fill-rule='nonzero' r='9.998' /></svg>") 39 39, auto;
+}
+
+.nobody_turn {
+  cursor: url("data:image/svg+xml;utf8,<svg fill='lightgrey' width='78' height='78' clip-rule='evenodd' fill-rule='evenodd' stroke-linejoin='round' stroke-miterlimit='2' viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'><circle cx='11.998' cy='11.998' fill-rule='nonzero' r='9.998' /></svg>") 39 39, auto;
+}

@@ -12,6 +12,8 @@ import {
 import { faStar } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 
+import "./App.css";
+
 export enum GamePlayer {
   green = "green",
   red = "red",
@@ -68,6 +70,7 @@ export interface UseGameType {
   intervalTime: number;
   setIntervalTime: React.Dispatch<React.SetStateAction<number>>;
   maxCount: number;
+  playerCursor: string;
 }
 
 export const useGame = (props?: Partial<UseGameType>): UseGameType => {
@@ -145,6 +148,13 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     [row, column],
   );
 
+  const playerCursor = useMemo<string>(() => {
+    if (hasMovingPiece) {
+      return "nobody_turn";
+    }
+    return player === GamePlayer.green ? "green_turn" : "red_turn";
+  }, [hasMovingPiece, player]);
+
   return {
     error,
     setError,
@@ -181,6 +191,7 @@ export const useGame = (props?: Partial<UseGameType>): UseGameType => {
     maxCount,
     winningPieces,
     setWinningPieces,
+    playerCursor,
   };
 };
 
@@ -222,6 +233,7 @@ const USE_GAME_DEFAULT: UseGameType = {
   maxCount: 0,
   winningPieces: [],
   setWinningPieces: emptyFunction,
+  playerCursor: "nobody_turn",
 };
 
 const GameContext = createContext<UseGameType>(USE_GAME_DEFAULT);
@@ -524,9 +536,10 @@ const GameCellStyle = (props: {
   };
 };
 
-const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
-  const { columns, rows, width } = game;
-  /* grid-template-area: // where C = columns.length - 1, R = rows.length - 1
+const GameBoardStyle = {
+  root: (game: UseGameType): React.CSSProperties => {
+    const { columns, rows, width } = game;
+    /* grid-template-area: // where C = columns.length - 1, R = rows.length - 1
        game_header    game_header    game_header    ... game_header
        game_cell_0_0  game_cell_0_1  game_cell_0_2  ... game_cell_0_C
        game_cell_1_0  game_cell_1_1  game_cell_1_2  ... game_cell_1_C
@@ -535,24 +548,27 @@ const GameBoardStyle = (game: UseGameType): React.CSSProperties => {
        game_cell_R_0  game_cell_R_1  game_cell_R_2  ... game_cell_R_C
   */
 
-  const gridTemplateAreas = [
-    `"${columns.map(() => "game_header").join(" ")}"`,
-    rows
-      .map(
-        (row) =>
-          `"${columns.map((col) => gameCellGridArea({ col, row })).join(" ")}"`,
-      )
-      .join(" "),
-  ].join(" ");
+    const gridTemplateAreas = [
+      `"${columns.map(() => "game_header").join(" ")}"`,
+      rows
+        .map(
+          (row) =>
+            `"${columns
+              .map((col) => gameCellGridArea({ col, row }))
+              .join(" ")}"`,
+        )
+        .join(" "),
+    ].join(" ");
 
-  return {
-    display: "grid",
-    borderRadius: "50%",
-    gap: "1rem",
-    placeItems: "center",
-    gridTemplateAreas,
-    width: `${width}rem`,
-  };
+    return {
+      display: "grid",
+      borderRadius: "50%",
+      gap: "1rem",
+      placeItems: "center",
+      gridTemplateAreas,
+      width: `${width}rem`,
+    };
+  },
 };
 
 export const GameCellsDataTestID = (dataTestID: string) => {
@@ -713,18 +729,21 @@ export const GameWinningPieces = (props?: GameWinningPiece) => {
     </>
   );
 };
+
 export interface GameBoardProps extends GameProps, React.PropsWithChildren {}
 
 export const GameBoard = (props: GameBoardProps) => {
   const game = useGameContext();
   const { children } = props;
+  const { playerCursor } = game;
+
   const style = useMemo<React.CSSProperties>(
-    () => ({ ...GameBoardStyle(game), ...props?.style }),
+    () => ({ ...GameBoardStyle.root(game), ...props?.style }),
     [props?.style, game],
   );
 
   return (
-    <div data-testid={props?.dataTestID} style={style}>
+    <div data-testid={props?.dataTestID} style={style} className={playerCursor}>
       {children}
     </div>
   );
@@ -1101,9 +1120,9 @@ export const Game = (props?: GameProps): JSX.Element => {
         <GamePieces dataTestID={game.pieces} />
         <GameWinningPieces dataTestID={game.winningPieces} />
         <GameMovingPiece dataTestID={game.movingPiece} />
-        <GameConfig dataTestID={game.config} />
         <GameScore dataTestID={game.score} />
       </GameBoard>
+      <GameConfig dataTestID={game.config} />
     </div>
   );
 };
@@ -1130,7 +1149,7 @@ export interface GameProviderWithGameBoard
     React.PropsWithChildren {}
 
 export const GameProviderWithGameBoard = (
-  props: GameProviderWithGameBoard
+  props: GameProviderWithGameBoard,
 ): JSX.Element => {
   const { children, ...others } = props;
 
@@ -1150,4 +1169,3 @@ export const App = () => {
     </GameProvider>
   );
 };
-
